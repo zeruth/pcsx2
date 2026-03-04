@@ -132,7 +132,7 @@ namespace usb_pad
 
 	const char* TranceVibratorDevice::IconName() const
 	{
-		return ICON_PF_REZ_VIBRATOR;
+		return "TranceVibrator";
 	}
 
 	bool TranceVibratorDevice::Freeze(USBDevice* dev, StateWrapper& sw) const

@@ -447,7 +447,7 @@ namespace usb_lightgun
 
 	const char* GunCon2Device::IconName() const
 	{
-		return ICON_PF_GUNCON2;
+		return "guncon2";
 	}
 
 	USBDevice* GunCon2Device::CreateDevice(SettingsInterface& si, u32 port, u32 subtype) const

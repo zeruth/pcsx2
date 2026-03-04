@@ -334,7 +334,7 @@ namespace usb_printer
 
 	const char* PrinterDevice::IconName() const
 	{
-		return ICON_PF_PRINTER;
+		return "printer";
 	}
 
 	bool PrinterDevice::Freeze(USBDevice* dev, StateWrapper& sw) const

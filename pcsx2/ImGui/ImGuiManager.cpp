@@ -127,15 +127,16 @@ void ImGuiManager::SetFontPath(std::string path)
 
 bool ImGuiManager::Initialize()
 {
+	Console.Error("1");
 	if (!LoadFontData())
 	{
 		pxFailRel("Failed to load font data");
 		return false;
 	}
 
+	Console.Error("2");
 	s_global_scale = std::max(0.5f, g_gs_device->GetWindowScale() * (GSConfig.OsdScale / 100.0f));
 	s_scale_changed = false;
-
 	ImGuiContext& g = *ImGui::CreateContext();
 
 	ImGuiIO& io = ImGui::GetIO();
@@ -143,7 +144,7 @@ bool ImGuiManager::Initialize()
 	io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset | ImGuiBackendFlags_RendererHasTextures | ImGuiBackendFlags_HasGamepad;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
 	io.KeyRepeatDelay = 0.5f;
-
+	Console.Error("3");
 	g.ConfigNavWindowingKeyNext = ImGuiKey_None;
 	g.ConfigNavWindowingKeyPrev = ImGuiKey_None;
 	g.ConfigNavWindowingWithGamepad = false;
@@ -155,7 +156,7 @@ bool ImGuiManager::Initialize()
 
 	SetKeyMap();
 	SetStyle();
-
+	Console.Error("4");
 	const bool add_fullscreen_fonts = s_fullscreen_ui_was_initialized;
 	pxAssertRel(!FullscreenUI::IsInitialized(), "Fullscreen UI is not initialized on ImGui init");
 	if (add_fullscreen_fonts)
@@ -418,6 +419,8 @@ bool ImGuiManager::LoadFontData()
 		s_fixed_font_data = std::move(font_data.value());
 	}
 
+	// Emoji font is not bundled on Android.
+#ifndef __ANDROID__
 	if (s_emoji_font_data.empty())
 	{
 		std::optional<std::vector<u8>> font_data = FileSystem::ReadBinaryFile(
@@ -427,6 +430,7 @@ bool ImGuiManager::LoadFontData()
 
 		s_emoji_font_data = std::move(font_data.value());
 	}
+#endif
 
 	if (s_icon_fa_font_data.empty())
 	{
@@ -531,6 +535,10 @@ bool ImGuiManager::AddIconFonts()
 
 bool ImGuiManager::AddEmojiFont()
 {
+#ifdef __ANDROID__
+	// Emoji font not bundled on Android — skip silently.
+	return true;
+#endif
 	{
 		// ImGui can't correctly handle some Unicode codepoints
 		// Remove them to avoid rendering blank/fallback characters

@@ -141,9 +141,16 @@ static bool OpenGSDevice(GSRendererType renderer, bool clear_state_on_fail, bool
 	}
 
 	bool okay = g_gs_device->Create(vsync_mode, allow_present_throttle);
+
+	if (!okay)
+		Console.Error("GS NOT OKAY");
+	else
+		Console.Error("GS OKAY");
 	if (okay)
 	{
 		okay = ImGuiManager::Initialize();
+
+		Console.Error("Should be last");
 		if (!okay)
 			Console.Error("Failed to initialize ImGuiManager");
 	}
@@ -151,7 +158,7 @@ static bool OpenGSDevice(GSRendererType renderer, bool clear_state_on_fail, bool
 	{
 		Console.Error("Failed to create GS device");
 	}
-
+    Console.Error("IMGUI OKAY");
 	if (!okay)
 	{
 		ImGuiManager::Shutdown(clear_state_on_fail);
@@ -954,7 +961,9 @@ void GSFreeWrappedMemory(void* ptr, size_t size, size_t repeat)
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-
+#ifdef __ANDROID__
+#include <android/sharedmem.h>
+#endif
 static int s_shm_fd = -1;
 
 void* GSAllocateWrappedMemory(size_t size, size_t repeat)
@@ -962,6 +971,7 @@ void* GSAllocateWrappedMemory(size_t size, size_t repeat)
 	pxAssert(s_shm_fd == -1);
 
 	const char* file_name = "/GS.mem";
+#ifndef __ANDROID__
 	s_shm_fd = shm_open(file_name, O_RDWR | O_CREAT | O_EXCL, 0600);
 	if (s_shm_fd != -1)
 	{
@@ -975,7 +985,14 @@ void* GSAllocateWrappedMemory(size_t size, size_t repeat)
 
 	if (ftruncate(s_shm_fd, repeat * size) < 0)
 		fprintf(stderr, "Failed to reserve memory due to %s\n", strerror(errno));
-
+#else
+	s_shm_fd = ASharedMemory_create(file_name, repeat * size);
+    if (s_shm_fd < 0)
+    {
+        fprintf(stderr, "Failed to open shared memory\n");
+        return nullptr;
+    }
+#endif
 	void* fifo = mmap(nullptr, size * repeat, PROT_READ | PROT_WRITE, MAP_SHARED, s_shm_fd, 0);
 
 	for (size_t i = 1; i < repeat; i++)

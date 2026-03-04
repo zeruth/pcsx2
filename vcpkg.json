@@ -1,0 +1,11 @@
+{
+  "name": "pcsx2",
+  "version": "1.0.0",
+  "dependencies": [
+    "freetype",
+    "zlib",
+    "libjpeg-turbo",
+    "libpng",
+    "libwebp"
+  ]
+}

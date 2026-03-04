@@ -576,7 +576,7 @@ public:
 	~SavestateEntry_VU0mem() = default;
 
 	const char* GetFilename() const override { return "vu0Memory.bin"; }
-	u8* GetDataPtr() const override { return vuRegs[0].Mem; }
+	u8* GetDataPtr() const override { return g_cpuRegistersPack.vuRegs[0].Mem; }
 	uint GetDataSize() const override { return VU0_MEMSIZE; }
 };
 
@@ -586,7 +586,7 @@ public:
 	~SavestateEntry_VU1mem() = default;
 
 	const char* GetFilename() const override { return "vu1Memory.bin"; }
-	u8* GetDataPtr() const override { return vuRegs[1].Mem; }
+	u8* GetDataPtr() const override { return g_cpuRegistersPack.vuRegs[1].Mem; }
 	uint GetDataSize() const override { return VU1_MEMSIZE; }
 };
 
@@ -596,7 +596,7 @@ public:
 	~SavestateEntry_VU0prog() = default;
 
 	const char* GetFilename() const override { return "vu0MicroMem.bin"; }
-	u8* GetDataPtr() const override { return vuRegs[0].Micro; }
+	u8* GetDataPtr() const override { return g_cpuRegistersPack.vuRegs[0].Micro; }
 	uint GetDataSize() const override { return VU0_PROGSIZE; }
 };
 
@@ -606,7 +606,7 @@ public:
 	~SavestateEntry_VU1prog() = default;
 
 	const char* GetFilename() const override { return "vu1MicroMem.bin"; }
-	u8* GetDataPtr() const override { return vuRegs[1].Micro; }
+	u8* GetDataPtr() const override { return g_cpuRegistersPack.vuRegs[1].Micro; }
 	uint GetDataSize() const override { return VU1_PROGSIZE; }
 };
 

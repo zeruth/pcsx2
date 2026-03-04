@@ -19,6 +19,11 @@
 
 #include "fmt/format.h"
 
+#if defined(__ANDROID__)
+#include <dlfcn.h>
+#include <linux/ashmem.h>
+#endif
+
 #if defined(__FreeBSD__)
 #include "cpuinfo.h"
 #endif
@@ -95,6 +100,37 @@ std::string HostSys::GetFileMappingName(const char* prefix)
 
 void* HostSys::CreateSharedMemory(const char* name, size_t size)
 {
+#if defined(__ANDROID__)
+	// ASharedMemory path - works on API >= 26 and falls through on API < 26:
+
+	// We can't call ASharedMemory_create the normal way without increasing the
+	// minimum version requirement to API 26, so we use dlopen/dlsym instead
+	static void* libandroid = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
+	static auto shared_memory_create =
+			reinterpret_cast<int (*)(const char*, size_t)>(dlsym(libandroid, "ASharedMemory_create"));
+	int fd = -1;
+	if (shared_memory_create)
+		fd = shared_memory_create(name, size);
+
+	// /dev/ashmem path - works on API < 29:
+	if (fd < 0)
+	{
+		fd = open("/dev/ashmem", O_RDWR);
+		if (fd < 0)
+			return nullptr;
+	}
+
+	// We don't really care if we can't set the name, it is optional
+	ioctl(fd, ASHMEM_SET_NAME, name);
+
+	int ret = ioctl(fd, ASHMEM_SET_SIZE, size);
+	if (ret < 0)
+	{
+		close(fd);
+		std::fprintf(stderr, "Ashmem returned error: 0x%08x\n", ret);
+		return nullptr;
+	}
+#else
 	const int fd = shm_open(name, O_CREAT | O_EXCL | O_RDWR, 0600);
 	if (fd < 0)
 	{
@@ -111,7 +147,7 @@ void* HostSys::CreateSharedMemory(const char* name, size_t size)
 		std::fprintf(stderr, "ftruncate(%zu) failed: %d\n", size, errno);
 		return nullptr;
 	}
-
+#endif
 	return reinterpret_cast<void*>(static_cast<intptr_t>(fd));
 }
 
@@ -344,7 +380,9 @@ void PageFaultHandler::SignalHandler(int sig, siginfo_t* info, void* ctx)
 bool PageFaultHandler::Install(Error* error)
 {
 	std::unique_lock lock(s_exception_handler_mutex);
-	pxAssertRel(!s_installed, "Page fault handler has already been installed.");
+	// pxAssertRel(!s_installed, "Page fault handler has already been installed.");
+	if (s_installed)
+		return true;
 
 	struct sigaction sa;
 

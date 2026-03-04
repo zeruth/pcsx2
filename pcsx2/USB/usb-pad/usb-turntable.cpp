@@ -239,7 +239,7 @@ namespace usb_pad
 
 	const char* DJTurntableDevice::IconName() const
 	{
-		return ICON_PF_DJ_HERO_TURNTABLE;
+		return "DJTurntable";
 	}
 
 	USBDevice* DJTurntableDevice::CreateDevice(SettingsInterface& si, u32 port, u32 subtype) const

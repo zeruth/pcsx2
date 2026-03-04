@@ -208,7 +208,7 @@ namespace usb_pad
 
 	const char* BuzzDevice::IconName() const
 	{
-		return ICON_PF_BUZZ_CONTROLLER;
+		return "BuzzDevice";
 	}
 
 	bool BuzzDevice::Freeze(USBDevice* dev, StateWrapper& sw) const

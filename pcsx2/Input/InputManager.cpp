@@ -830,16 +830,19 @@ float InputManager::ApplySingleBindingScale(float scale, float deadzone, float v
 std::vector<const HotkeyInfo*> InputManager::GetHotkeyList()
 {
 	std::vector<const HotkeyInfo*> ret;
+#if !defined(__ANDROID__)
 	for (const HotkeyInfo* hotkey_list : s_hotkey_list)
 	{
 		for (const HotkeyInfo* hotkey = hotkey_list; hotkey->name != nullptr; hotkey++)
 			ret.push_back(hotkey);
 	}
+#endif
 	return ret;
 }
 
 void InputManager::AddHotkeyBindings(SettingsInterface& si, bool is_profile)
 {
+#if !defined(__ANDROID__)
 	for (const HotkeyInfo* hotkey_list : s_hotkey_list)
 	{
 		for (const HotkeyInfo* hotkey = hotkey_list; hotkey->name != nullptr; hotkey++)
@@ -851,6 +854,7 @@ void InputManager::AddHotkeyBindings(SettingsInterface& si, bool is_profile)
 			AddBindings(bindings, InputButtonEventHandler{hotkey->handler}, InputBindingInfo::Type::Button, si, "Hotkeys", hotkey->name, is_profile);
 		}
 	}
+#endif
 }
 
 void InputManager::AddPadBindings(SettingsInterface& si, u32 pad_index, bool is_profile)

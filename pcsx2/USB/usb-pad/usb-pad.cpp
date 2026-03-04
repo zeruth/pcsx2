@@ -818,7 +818,7 @@ namespace usb_pad
 
 	const char* PadDevice::IconName() const
 	{
-		return ICON_PF_STEERING_WHEEL_ALT;
+		return "Pad";
 	}
 
 	bool PadDevice::Freeze(USBDevice* dev, StateWrapper& sw) const
@@ -963,7 +963,7 @@ namespace usb_pad
 
 	const char* KeyboardmaniaDevice::IconName() const
 	{
-		return ICON_PF_KEYBOARDMANIA;
+		return "Keyboardmania";
 	}
 
 	std::span<const char*> KeyboardmaniaDevice::SubTypes() const

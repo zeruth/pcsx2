@@ -133,11 +133,17 @@ namespace dyn_shaderc
 
 bool dyn_shaderc::Open()
 {
-	if (s_library.IsOpen())
+	if (s_compiler)
 		return true;
 
 	Error error;
 
+#ifdef __ANDROID__
+	// On Android, shaderc is statically linked; assign function pointers directly.
+#define LOAD_FUNC(F) F = &::F;
+	SHADERC_FUNCTIONS(LOAD_FUNC)
+#undef LOAD_FUNC
+#else
 #ifdef _WIN32
 	const std::string libname = DynamicLibrary::GetVersionedFilename("shaderc_shared");
 #else
@@ -160,6 +166,7 @@ bool dyn_shaderc::Open()
 
 	SHADERC_FUNCTIONS(LOAD_FUNC)
 #undef LOAD_FUNC
+#endif // __ANDROID__
 
 	s_compiler = shaderc_compiler_initialize();
 	if (!s_compiler)

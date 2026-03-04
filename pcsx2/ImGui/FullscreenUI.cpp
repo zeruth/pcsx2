@@ -292,6 +292,10 @@ void FullscreenUI::DrawListSvgTexture(ImDrawList* drawList, GSTexture* padded_te
 
 bool FullscreenUI::Initialize()
 {
+#if defined(__ANDROID__)
+	s_initialized = false;
+	return false;
+#endif
 	if (s_initialized)
 		return true;
 

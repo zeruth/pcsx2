@@ -182,7 +182,6 @@ bool GSDeviceOGL::Create(GSVSyncMode vsync_mode, bool allow_present_throttle)
 
 	if (!CheckFeatures())
 		return false;
-
 	// Store adapter name currently in use
 	m_name = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
 
@@ -191,6 +190,8 @@ bool GSDeviceOGL::Create(GSVSyncMode vsync_mode, bool allow_present_throttle)
 	// Render a frame as soon as possible to clear out whatever was previously being displayed.
 	if (m_window_info.type != WindowInfo::Type::Surfaceless)
 		RenderBlankFrame();
+
+
 
 	if (!GSConfig.DisableShaderCache)
 	{
@@ -988,6 +989,13 @@ void GSDeviceOGL::PopTimestampQuery()
 {
 	while (m_waiting_timestamp_queries > 0)
 	{
+#if defined(__ANDROID__)
+		glBeginQuery(GL_TIME_ELAPSED, m_timestamp_queries[m_read_timestamp_query]);
+
+        GLuint result = 0;
+        glGetQueryObjectuiv(m_timestamp_queries[m_read_timestamp_query], GL_QUERY_RESULT, &result);
+        m_accumulated_gpu_time += static_cast<float>(static_cast<double>(result) / 1000000.0);
+#else
 		GLint available = 0;
 		glGetQueryObjectiv(m_timestamp_queries[m_read_timestamp_query], GL_QUERY_RESULT_AVAILABLE, &available);
 
@@ -997,6 +1005,7 @@ void GSDeviceOGL::PopTimestampQuery()
 		u64 result = 0;
 		glGetQueryObjectui64v(m_timestamp_queries[m_read_timestamp_query], GL_QUERY_RESULT, &result);
 		m_accumulated_gpu_time += static_cast<float>(static_cast<double>(result) / 1000000.0);
+#endif
 		m_read_timestamp_query = (m_read_timestamp_query + 1) % NUM_TIMESTAMP_QUERIES;
 		m_waiting_timestamp_queries--;
 	}

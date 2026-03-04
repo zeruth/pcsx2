@@ -18,6 +18,10 @@
 #include <unistd.h>
 #endif
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
+
 using namespace std::string_view_literals;
 
 // Dummy objects, need to get rid of them...
@@ -409,7 +413,9 @@ __ri void Log::UpdateMaxLevel()
 void Log::ExecuteCallbacks(LOGLEVEL level, ConsoleColors color, std::string_view message)
 {
 	// TODO: Cache the message time.
-
+#if defined(__ANDROID__)
+	__android_log_print(ANDROID_LOG_DEBUG, "NDK_LOG", "%s", std::string(message).c_str());
+#else
 	// Split newlines into separate messages.
 	std::string_view::size_type start_pos = 0;
 	if (std::string_view::size_type end_pos = message.find('\n'); end_pos != std::string::npos) [[unlikely]]
@@ -448,6 +454,7 @@ void Log::ExecuteCallbacks(LOGLEVEL level, ConsoleColors color, std::string_view
 		if (callback)
 			s_host_callback(level, color, message);
 	}
+#endif
 }
 
 void Log::Write(LOGLEVEL level, ConsoleColors color, std::string_view message)

@@ -18,6 +18,10 @@
 #include <signal.h>
 #endif
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
 static std::mutex s_assertion_failed_mutex;
 
 static inline void FreezeThreads(void** handle)
@@ -109,6 +113,9 @@ void pxOnAssertFail(const char* file, int line, const char* func, const char* ms
 		CrashHandler::WriteDumpForCaller();
 		TerminateProcess(GetCurrentProcess(), 0xBAADC0DE);
 	}
+#elif defined(__ANDROID__)
+	__android_log_print(ANDROID_LOG_ERROR, "NDK_LOG", "%s", full_msg);
+	AbortWithMessage(full_msg);
 #else
 	fputs(full_msg, stderr);
 	fputs("\nAborting application.\n", stderr);

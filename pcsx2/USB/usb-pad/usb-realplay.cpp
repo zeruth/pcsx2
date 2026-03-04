@@ -288,7 +288,7 @@ namespace usb_pad
 
 	const char* RealPlayDevice::IconName() const
 	{
-		return ICON_PF_REALPLAY_BOWLING;
+		return "RealPlay";
 	}
 
 	USBDevice* RealPlayDevice::CreateDevice(SettingsInterface& si, u32 port, u32 type) const

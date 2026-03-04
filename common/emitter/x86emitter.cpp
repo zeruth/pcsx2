@@ -16,7 +16,11 @@
  *		sudonim(1@gmail.com)
  */
 
+#if defined(__ANDROID__)
+#include "common/emitter/x86types.h"
+#else
 #include "common/emitter/internal.h"
+#endif
 #include <functional>
 
 // ------------------------------------------------------------------------
@@ -48,8 +52,37 @@
 //
 
 
-thread_local u8* x86Ptr;
 thread_local XMMSSEType g_xmmtypes[iREGCNT_XMM] = {XMMT_INT};
+
+#if defined(__ANDROID__)
+
+const a64::VRegister
+    xmm0=a64::QRegister(0), xmm1=a64::QRegister(1),
+    xmm2=a64::QRegister(2), xmm3=a64::QRegister(3),
+    xmm4=a64::QRegister(4), xmm5=a64::QRegister(5),
+    xmm6=a64::QRegister(6), xmm7=a64::QRegister(7),
+    xmm8=a64::QRegister(8), xmm9=a64::QRegister(9),
+    xmm10=a64::QRegister(10), xmm11=a64::QRegister(11),
+    xmm12=a64::QRegister(12), xmm13=a64::QRegister(13),
+    xmm14=a64::QRegister(14), xmm15=a64::QRegister(15);
+
+const a64::XRegister
+    arg1reg = a64::XRegister(1),
+    arg2reg = a64::XRegister(2),
+    arg3reg = a64::XRegister(8),
+    arg4reg = a64::XRegister(9),
+    calleeSavedReg1 = a64::XRegister(7),
+    calleeSavedReg2 = a64::XRegister(6);
+
+const a64::WRegister
+    arg1regd = a64::WRegister(1),
+    arg2regd = a64::WRegister(2),
+    calleeSavedReg1d = a64::WRegister(7),
+    calleeSavedReg2d = a64::WRegister(6);
+
+#else
+
+thread_local u8* x86Ptr;
 
 bool x86Emitter::use_avx;
 
@@ -1451,3 +1484,5 @@ const xRegister32
 	}
 
 } // End namespace x86Emitter
+
+#endif // !defined(__ANDROID__)

@@ -197,13 +197,21 @@ if(NOT WIN32)
 	)
 endif()
 
-target_link_libraries(common PRIVATE
-	${LIBC_LIBRARIES}
-	JPEG::JPEG
-	PNG::PNG
-	WebP::libwebp
-	cpuinfo
-)
+if(ANDROID)
+	target_link_libraries(common PRIVATE
+			${LIBC_LIBRARIES}
+			jpeg
+			png16
+			webp
+	)
+else()
+	target_link_libraries(common PRIVATE
+			${LIBC_LIBRARIES}
+			JPEG::JPEG
+			PNG::PNG
+			WebP::libwebp
+	)
+endif()
 
 target_link_libraries(common PUBLIC
 	fmt::fmt

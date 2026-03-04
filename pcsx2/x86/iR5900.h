@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
+// SPDX-FileCopyrightText: 2002-2025 PCSX2 Dev Team
 // SPDX-License-Identifier: GPL-3.0+
 
 #pragma once
@@ -12,7 +12,9 @@
 #include "common/emitter/x86emitter.h"
 
 // Register containing a pointer to our fastmem (4GB) area
+#if !defined(__ANDROID__)
 #define RFASTMEMBASE x86Emitter::rbp
+#endif
 
 extern u32 maxrecmem;
 extern u32 pc;             // recompiler pc
@@ -76,7 +78,7 @@ namespace R5900
 {
 	namespace Dynarec
 	{
-		extern void recDoBranchImm(u32 branchTo, u32* jmpSkip, bool isLikely = false, bool swappedDelaySlot = false);
+		extern void recDoBranchImm(u32 branchTo, a64::Label* jmpSkip, bool isLikely = false, bool swappedDelaySlot = false);
 	} // namespace Dynarec
 } // namespace R5900
 
@@ -105,9 +107,8 @@ alignas(16) extern GPR_reg64 g_cpuConstRegs[32];
 extern u32 g_cpuHasConstReg, g_cpuFlushedConstReg;
 
 // finds where the GPR is stored and moves lower 32 bits to EAX
-void _eeMoveGPRtoR(const x86Emitter::xRegister32& to, int fromgpr, bool allow_preload = true);
-void _eeMoveGPRtoR(const x86Emitter::xRegister64& to, int fromgpr, bool allow_preload = true);
-void _eeMoveGPRtoM(uptr to, int fromgpr); // 32-bit only
+void _eeMoveGPRtoR(const a64::Register& to, int fromgpr, bool allow_preload = true);
+void _eeMoveGPRtoM(const a64::MemOperand& to, int fromgpr); // 32-bit only
 
 void _eeFlushAllDirty();
 void _eeOnWriteReg(int reg, int signext);

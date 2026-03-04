@@ -79,6 +79,7 @@ GLContextEGL::~GLContextEGL()
 	UnloadEGL();
 }
 
+
 std::unique_ptr<GLContext> GLContextEGL::Create(const WindowInfo& wi, std::span<const Version> versions_to_try,
 	Error* error)
 {
@@ -542,4 +543,21 @@ bool GLContextEGL::CreateContextAndSurface(const Version& version, EGLContext sh
 	}
 
 	return true;
+}
+
+bool GLContextEGL::SetDisplay()
+{
+	m_display = eglGetDisplay(static_cast<EGLNativeDisplayType>(m_wi.display_connection));
+	if (!m_display)
+	{
+		Console.Error("eglGetDisplay() failed: %d", eglGetError());
+		return false;
+	}
+
+	return true;
+}
+
+EGLNativeWindowType GLContextEGL::GetNativeWindow(EGLConfig config)
+{
+	return {};
 }

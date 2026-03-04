@@ -34,7 +34,7 @@ using namespace R5900;	// for R5900 disasm tools
 s32 EEsCycle;		// used to sync the IOP to the EE
 u32 EEoCycle;
 
-alignas(16) cpuRegistersPack _cpuRegistersPack;
+alignas(64) cpuRegistersPack g_cpuRegistersPack;
 alignas(16) tlbs tlb[48];
 cachedTlbs_t cachedTlbs;
 
@@ -58,6 +58,10 @@ uptr g_argPtrs[kMaxArgs];
 
 void cpuReset()
 {
+	//// cpuRegistersPack -> VIFregisters
+	g_cpuRegistersPack.vifRegs[0] = vif0Regs;
+	g_cpuRegistersPack.vifRegs[1] = vif1Regs;
+	////
 	std::memset(&cpuRegs, 0, sizeof(cpuRegs));
 	std::memset(&fpuRegs, 0, sizeof(fpuRegs));
 	std::memset(&tlb, 0, sizeof(tlb));
@@ -409,15 +413,8 @@ __fi void _cpuEventTest_Shared()
 	_cpuTestTIMR();
 
 	// ---- Interrupts -------------
-	// These are basically just DMAC-related events, which also piggy-back the same bits as
-	// the PS2's own DMA channel IRQs and IRQ Masks.
-
 	if (cpuRegs.interrupt)
 	{
-		// This is a BIOS hack because the coding in the BIOS is terrible but the bug is masked by Data Cache
-		// where a DMA buffer is overwritten without waiting for the transfer to end, which causes the fonts to get all messed up
-		// so to fix it, we run all the DMA's instantly when in the BIOS.
-		// Only use the lower 17 bits of the cpuRegs.interrupt as the upper bits are for VU0/1 sync which can't be done in a tight loop
 		if (CHECK_INSTANTDMAHACK && dmacRegs.ctrl.DMAE && !(psHu8(DMAC_ENABLER + 2) & 1) && (cpuRegs.interrupt & 0x1FFFF))
 		{
 			while ((cpuRegs.interrupt & 0x1FFFF) && _cpuTestInterrupts())
@@ -428,14 +425,17 @@ __fi void _cpuEventTest_Shared()
 	}
 
 	// ---- VU Sync -------------
-	// We're in a EventTest.  All dynarec registers are flushed
-	// so there is no need to freeze registers here.
 	CpuVU0->ExecuteBlock();
 	CpuVU1->ExecuteBlock();
 
 	// ---- Schedule Next Event Test --------------
+#if defined(ANDROID)
+	// Use integer shift to avoid float precision issues on ARM64
+	const s32 nextIopEventDeta = (psxRegs.iopNextEventCycle - psxRegs.cycle) << 3;
+#else
 	const float mutiplier = static_cast<float>(PS2CLK) / static_cast<float>(PSXCLK);
-	const int nextIopEventDeta = ((psxRegs.iopNextEventCycle - psxRegs.cycle) * mutiplier);
+	const s32 nextIopEventDeta = ((psxRegs.iopNextEventCycle - psxRegs.cycle) * mutiplier);
+#endif
 	// 8 or more cycles behind and there's an event scheduled
 	if (EEsCycle >= nextIopEventDeta)
 	{
@@ -448,7 +448,7 @@ __fi void _cpuEventTest_Shared()
 	else
 	{
 		// Otherwise IOP is caught up/not doing anything so we can wait for the next event.
-		cpuSetNextEventDelta(((psxRegs.iopNextEventCycle - psxRegs.cycle) * mutiplier) - EEsCycle);
+		cpuSetNextEventDelta(nextIopEventDeta - EEsCycle);
 	}
 
 	// Apply vsync and other counter nextCycles

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
+// SPDX-FileCopyrightText: 2002-2025 PCSX2 Dev Team
 // SPDX-License-Identifier: GPL-3.0+
 
 #pragma once
@@ -215,11 +215,10 @@ static const char eeOpcodeName[][16] = {
 #ifdef eeProfileProg
 #include <utility>
 #include <algorithm>
-#include "common/emitter/x86emitter.h"
-#include "common/Console.h"
-#include "GS/MultiISA.h"
 
+#if !defined(__ANDROID__)
 using namespace x86Emitter;
+#endif
 
 struct eeProfiler
 {
@@ -371,7 +370,7 @@ struct eeProfiler
 	void EmitMem()
 	{
 		// Compact the 4GB virtual address to a 512KB virtual address
-		if (g_cpu.hasBMI2)
+		if (x86caps.hasBMI2)
 		{
 			xPEXT(ebx, ecx, ptr[&memMask]);
 			xADD(ptr32[(rbx * 4) + memStats], 1);
@@ -380,7 +379,7 @@ struct eeProfiler
 
 	void EmitConstMem(u32 add)
 	{
-		if (g_cpu.hasBMI2)
+		if (x86caps.hasBMI2)
 		{
 			u32 a = _pext_u32(add, memMask);
 			xADD(ptr32[a + memStats], 1);

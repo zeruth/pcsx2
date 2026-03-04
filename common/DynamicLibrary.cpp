@@ -83,6 +83,8 @@ std::string DynamicLibrary::GetVersionedFilename(const char* libname, int major,
 
 bool DynamicLibrary::Open(const char* filename, Error* error)
 {
+	Console.Error(filename);
+
 #ifdef _WIN32
 	m_handle = reinterpret_cast<void*>(LoadLibraryW(StringUtil::UTF8StringToWideString(filename).c_str()));
 	if (!m_handle)

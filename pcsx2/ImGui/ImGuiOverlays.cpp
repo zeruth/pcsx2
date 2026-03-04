@@ -271,7 +271,7 @@ __ri void ImGuiManager::DrawPerformanceOverlay(float& position_y, float scale, f
 			}
 
 			if (GSConfig.OsdShowVersion)
-				s_speed_line.append_format("{}PCSX2 {}", s_speed_line.empty() ? "" : " | ", BuildVersion::GitRev);
+				s_speed_line.append_format("{}PCSX2 {} ({})", s_speed_line.empty() ? "" : " | ", BuildVersion::GitTag, BuildVersion::GitHash);
 
 			if (!s_speed_line.empty())
 			{

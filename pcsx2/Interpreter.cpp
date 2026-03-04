@@ -152,6 +152,8 @@ void intCheckMemcheck()
 
 static void execI()
 {
+	static bool first = true;
+	if (first) { first = false; Console.WriteLn("DBG: execI first call, pc=0x%08X", cpuRegs.pc); }
 	// execI is called for every instruction so it must remains as light as possible.
 	// If you enable the next define, Interpreter will be much slower (around
 	// ~4fps on 3.9GHz Haswell vs ~8fps (even 10fps on dev build))
@@ -589,11 +591,14 @@ static void intCancelInstruction()
 
 static void intExecute()
 {
+	Console.WriteLn("DBG: intExecute entered");
 	// This will come back as zero the first time it runs, or on instruction cancel.
 	// It will come back as nonzero when we exit execution.
+	Console.WriteLn("DBG: intExecute calling fastjmp_set");
 	if (fastjmp_set(&intJmpBuf) != 0)
 		return;
 
+	Console.WriteLn("DBG: intExecute entered loop");
 	for (;;)
 	{
 		if (!VMManager::Internal::HasBootedELF())
@@ -603,6 +608,7 @@ static void intExecute()
 			u32 eeload_main = g_eeloadMain;
 			u32 eeload_exec = g_eeloadExec;
 
+			Console.WriteLn("DBG: intExecute calling first execI");
 			while (true)
 			{
 				execI();
@@ -652,7 +658,9 @@ static void intExecute()
 		else
 		{
 			while (true)
+			{
 				execI();
+			}
 		}
 	}
 }

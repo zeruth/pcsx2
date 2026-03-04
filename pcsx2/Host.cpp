@@ -38,6 +38,16 @@ namespace Host
 	static u32 s_translation_string_cache_pos;
 } // namespace Host
 
+bool ConfirmMessage(const std::string_view title, const std::string_view message)
+{
+	if (!title.empty() && !message.empty())
+		ERROR_LOG("ConfirmMessage: {}: {}", title, message);
+	else if (!message.empty())
+		ERROR_LOG("ConfirmMessage: {}", message);
+
+	return true;
+}
+
 std::pair<const char*, u32> Host::LookupTranslationString(const std::string_view context, const std::string_view msg)
 {
 	// TODO: TranslatableString, compile-time hashing.

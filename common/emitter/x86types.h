@@ -7,8 +7,18 @@
 #include "common/Assertions.h"
 #include "common/Pcsx2Defs.h"
 
+#if defined(__ANDROID__)
+#include "3rdparty/vixl/include/vixl/aarch64/constants-aarch64.h"
+#include "3rdparty/vixl/include/vixl/aarch64/macro-assembler-aarch64.h"
+namespace a64 = vixl::aarch64;
+#endif
+
 static const uint iREGCNT_XMM = 16;
+#if defined(__ANDROID__)
+static const uint iREGCNT_GPR = 25;
+#else
 static const uint iREGCNT_GPR = 16;
+#endif
 
 enum XMMSSEType
 {
@@ -17,8 +27,33 @@ enum XMMSSEType
 	//XMMT_FPD = 3, // double
 };
 
-extern thread_local u8* x86Ptr;
 extern thread_local XMMSSEType g_xmmtypes[iREGCNT_XMM];
+
+#if defined(__ANDROID__)
+
+static const int wordsize = sizeof(sptr);
+static constexpr int SHADOW_STACK_SIZE = 0;
+
+extern const a64::VRegister
+    xmm0, xmm1, xmm2, xmm3,
+    xmm4, xmm5, xmm6, xmm7,
+    xmm8, xmm9, xmm10, xmm11,
+    xmm12, xmm13, xmm14, xmm15;
+
+extern const a64::XRegister
+    arg1reg, arg2reg,
+    arg3reg, arg4reg,
+    calleeSavedReg1,
+    calleeSavedReg2;
+
+extern const a64::WRegister
+    arg1regd, arg2regd,
+    calleeSavedReg1d,
+    calleeSavedReg2d;
+
+#else
+
+extern thread_local u8* x86Ptr;
 
 namespace x86Emitter
 {
@@ -1062,3 +1097,5 @@ extern const xRegister32
 
 #include "implement/bmi.h"
 #include "implement/avx.h"
+
+#endif

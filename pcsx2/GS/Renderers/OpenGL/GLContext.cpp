@@ -18,6 +18,7 @@
 #include "common/Error.h"
 
 #include "glad/gl.h"
+#include "GS/Renderers/OpenGL/GLContextEGLAndroid.h"
 
 GLContext::GLContext(const WindowInfo& wi)
 	: m_wi(wi)
@@ -29,7 +30,7 @@ GLContext::~GLContext() = default;
 std::unique_ptr<GLContext> GLContext::Create(const WindowInfo& wi, Error* error)
 {
 	// We need at least GL3.3.
-	static constexpr Version vlist[] = {
+	static constexpr GLContext::Version vlist[] = {
 		{4, 6},
 		{4, 5},
 		{4, 4},
@@ -41,7 +42,8 @@ std::unique_ptr<GLContext> GLContext::Create(const WindowInfo& wi, Error* error)
 	};
 
 	std::unique_ptr<GLContext> context;
-	Error local_error;
+	if(wi.type == WindowInfo::Type::Android)
+        context = GLContextEGLAndroid::Create(wi, vlist, error);
 #if defined(_WIN32)
 	context = GLContextWGL::Create(wi, vlist, error);
 #else // Linux

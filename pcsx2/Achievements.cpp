@@ -1140,9 +1140,11 @@ void Achievements::DisplayAchievementSummary()
 			}
 		});
 	}
-
+//TODO
+#if !defined(__ANDROID__)
 	if (EmuConfig.Achievements.SoundEffects && EmuConfig.Achievements.InfoSound)
 		Common::PlaySoundAsync(EmuConfig.Achievements.InfoSoundName.c_str());
+#endif
 }
 
 void Achievements::DisplayHardcoreDeferredMessage()
@@ -1192,9 +1194,11 @@ void Achievements::HandleUnlockEvent(const rc_client_event_t* event)
 					std::move(title), std::move(summary), std::move(badge_path));
 			});
 	}
-
+//TODO
+#if !defined(__ANDROID__)
 	if (EmuConfig.Achievements.SoundEffects && EmuConfig.Achievements.UnlockSound)
 		Common::PlaySoundAsync(EmuConfig.Achievements.UnlockSoundName.c_str());
+#endif
 }
 
 void Achievements::HandleGameCompleteEvent(const rc_client_event_t* event)
@@ -1313,9 +1317,11 @@ void Achievements::HandleLeaderboardSubmittedEvent(const rc_client_event_t* even
 			}
 		});
 	}
-
+//TODO
+#if !defined(__ANDROID__)
 	if (EmuConfig.Achievements.SoundEffects && EmuConfig.Achievements.LBSubmitSound)
 		Common::PlaySoundAsync(EmuConfig.Achievements.LBSubmitSoundName.c_str());
+#endif
 }
 
 void Achievements::HandleLeaderboardScoreboardEvent(const rc_client_event_t* event)

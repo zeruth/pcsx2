@@ -3,6 +3,9 @@
 
 #include "Pcsx2Defs.h"
 #include "CrashHandler.h"
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 #include "DynamicLibrary.h"
 #include "FileSystem.h"
 #include "StringUtil.h"
@@ -308,6 +311,10 @@ void CrashHandler::CrashSignalHandler(int signal, siginfo_t* siginfo, void* ctx)
 		void* const exception_pc = reinterpret_cast<void*>(static_cast<ucontext_t*>(ctx)->uc_mcontext.mc_rip);
 #elif defined(__x86_64__)
 		void* const exception_pc = reinterpret_cast<void*>(static_cast<ucontext_t*>(ctx)->uc_mcontext.gregs[REG_RIP]);
+#elif defined(__aarch64__) && defined(__ANDROID__)
+		void* const exception_pc = reinterpret_cast<void*>(static_cast<ucontext_t*>(ctx)->uc_mcontext.pc);
+		void* const fault_addr = siginfo->si_addr;
+		__android_log_print(ANDROID_LOG_ERROR, "NDK_LOG", "CRASH: signal=%d pc=%p fault_addr=%p", signal, exception_pc, fault_addr);
 #else
 		void* const exception_pc = nullptr;
 #endif

@@ -1,11 +1,13 @@
-// SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
+// SPDX-FileCopyrightText: 2002-2025 PCSX2 Dev Team
 // SPDX-License-Identifier: GPL-3.0+
 
 #include "Common.h"
 #include "R5900OpcodeTables.h"
 #include "x86/iR5900.h"
 
+#if !defined(__ANDROID__)
 using namespace x86Emitter;
+#endif
 
 namespace R5900::Dynarec::OpcodeImpl
 {
@@ -39,27 +41,42 @@ REC_FUNC_DEL(DSRAV, _Rd_);
 
 static void recMoveTtoD(int info)
 {
-	if (info & PROCESS_EE_T)
-		xMOV(xRegister32(EEREC_D), xRegister32(EEREC_T));
-	else
-		xMOV(xRegister32(EEREC_D), ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
+    auto reg32 = a64::WRegister(EEREC_D);
+	if (info & PROCESS_EE_T) {
+//        xMOV(xRegister32(EEREC_D), xRegister32(EEREC_T));
+        armAsm->Mov(reg32, a64::WRegister(EEREC_T));
+    }
+	else {
+//        xMOV(xRegister32(EEREC_D), ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
+        armLoad(reg32, PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0]));
+    }
 }
 
 static void recMoveTtoD64(int info)
 {
-	if (info & PROCESS_EE_T)
-		xMOV(xRegister64(EEREC_D), xRegister64(EEREC_T));
-	else
-		xMOV(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[_Rt_].UD[0]]);
+    auto reg64 = a64::XRegister(EEREC_D);
+	if (info & PROCESS_EE_T) {
+//        xMOV(xRegister64(EEREC_D), xRegister64(EEREC_T));
+        armAsm->Mov(reg64, a64::XRegister(EEREC_T));
+    }
+	else {
+//        xMOV(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[_Rt_].UD[0]]);
+        armLoad(reg64, PTR_CPU(cpuRegs.GPR.r[_Rt_].UD[0]));
+    }
 }
 
 static void recMoveSToRCX(int info)
 {
 	// load full 64-bits for store->load forwarding, since we always store >=64.
-	if (info & PROCESS_EE_S)
-		xMOV(rcx, xRegister64(EEREC_S));
-	else
-		xMOV(rcx, ptr64[&cpuRegs.GPR.r[_Rs_].UL[0]]);
+	if (info & PROCESS_EE_S) {
+//        xMOV(rcx, xRegister64(EEREC_S));
+        armAsm->Mov(RCX, a64::XRegister(EEREC_S));
+    }
+	else {
+//        xMOV(rcx, ptr64[&cpuRegs.GPR.r[_Rs_].UL[0]]);
+        armLoad(RCX, PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
+    }
+//    armAsm->Uxth(RCX, RCX);
 }
 
 //// SLL
@@ -74,9 +91,14 @@ static void recSLLs_(int info, int sa)
 	pxAssert(!(info & PROCESS_EE_XMM));
 
 	recMoveTtoD(info);
-	if (sa != 0)
-		xSHL(xRegister32(EEREC_D), sa);
-	xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
+
+    auto reg32 = a64::WRegister(EEREC_D);
+	if (sa != 0) {
+//        xSHL(xRegister32(EEREC_D), sa);
+        armAsm->Lsl(reg32, reg32, sa);
+    }
+//	xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
+    armAsm->Sxtw(a64::XRegister(EEREC_D), reg32);
 }
 
 static void recSLL_(int info)
@@ -97,9 +119,14 @@ static void recSRLs_(int info, int sa)
 	pxAssert(!(info & PROCESS_EE_XMM));
 
 	recMoveTtoD(info);
-	if (sa != 0)
-		xSHR(xRegister32(EEREC_D), sa);
-	xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
+
+    auto reg32 = a64::WRegister(EEREC_D);
+	if (sa != 0) {
+//        xSHR(xRegister32(EEREC_D), sa);
+        armAsm->Lsr(reg32, reg32, sa);
+    }
+//	xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
+    armAsm->Sxtw(a64::XRegister(EEREC_D), reg32);
 }
 
 static void recSRL_(int info)
@@ -120,9 +147,14 @@ static void recSRAs_(int info, int sa)
 	pxAssert(!(info & PROCESS_EE_XMM));
 
 	recMoveTtoD(info);
-	if (sa != 0)
-		xSAR(xRegister32(EEREC_D), sa);
-	xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
+
+    auto reg32 = a64::WRegister(EEREC_D);
+	if (sa != 0) {
+//        xSAR(xRegister32(EEREC_D), sa);
+        armAsm->Asr(reg32, reg32, sa);
+    }
+//	xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
+    armAsm->Sxtw(a64::XRegister(EEREC_D), reg32);
 }
 
 static void recSRA_(int info)
@@ -143,8 +175,10 @@ static void recDSLLs_(int info, int sa)
 	pxAssert(!(info & PROCESS_EE_XMM));
 
 	recMoveTtoD64(info);
-	if (sa != 0)
-		xSHL(xRegister64(EEREC_D), sa);
+	if (sa != 0) {
+//        xSHL(xRegister64(EEREC_D), sa);
+        armAsm->Lsl(a64::XRegister(EEREC_D), a64::XRegister(EEREC_D), sa);
+    }
 }
 
 static void recDSLL_(int info)
@@ -165,8 +199,10 @@ static void recDSRLs_(int info, int sa)
 	pxAssert(!(info & PROCESS_EE_XMM));
 
 	recMoveTtoD64(info);
-	if (sa != 0)
-		xSHR(xRegister64(EEREC_D), sa);
+	if (sa != 0) {
+//        xSHR(xRegister64(EEREC_D), sa);
+        armAsm->Lsr(a64::XRegister(EEREC_D), a64::XRegister(EEREC_D), sa);
+    }
 }
 
 static void recDSRL_(int info)
@@ -187,8 +223,10 @@ static void recDSRAs_(int info, int sa)
 	pxAssert(!(info & PROCESS_EE_XMM));
 
 	recMoveTtoD64(info);
-	if (sa != 0)
-		xSAR(xRegister64(EEREC_D), sa);
+	if (sa != 0) {
+//        xSAR(xRegister64(EEREC_D), sa);
+        armAsm->Asr(a64::XRegister(EEREC_D), a64::XRegister(EEREC_D), sa);
+    }
 }
 
 static void recDSRA_(int info)
@@ -242,39 +280,109 @@ EERECOMPILE_CODEX(eeRecompileCodeRC2, DSRA32, XMMINFO_WRITED | XMMINFO_READT | X
 * Format:  OP rd, rt, rs                                 *
 *********************************************************/
 
-static void recShiftV_constt(int info, const xImpl_Group2& shift)
+namespace
+{
+    enum class LogicalShift
+    {
+        xSHL,
+        xSHR,
+        xSAR
+    };
+} // namespace
+
+static void recShiftV_constt(int info, const LogicalShift shift)
 {
 	pxAssert(_Rs_ != 0);
 	recMoveSToRCX(info);
-	xMOV(xRegister32(EEREC_D), g_cpuConstRegs[_Rt_].UL[0]);
-	shift(xRegister32(EEREC_D), cl);
-	xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
+
+    auto reg32 = a64::WRegister(EEREC_D);
+
+//	xMOV(xRegister32(EEREC_D), g_cpuConstRegs[_Rt_].UL[0]);
+    armAsm->Mov(reg32, g_cpuConstRegs[_Rt_].UL[0]);
+//	shift(xRegister32(EEREC_D), cl);
+    switch (shift) {
+        case LogicalShift::xSHL:
+            armAsm->Lsl(reg32, reg32, ECX);
+            break;
+        case LogicalShift::xSHR:
+            armAsm->Lsr(reg32, reg32, ECX);
+            break;
+        case LogicalShift::xSAR:
+            armAsm->Asr(reg32, reg32, ECX);
+            break;
+    }
+//	xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
+    armAsm->Sxtw(a64::XRegister(EEREC_D), reg32);
 }
 
-static void recShiftV(int info, const xImpl_Group2& shift)
+static void recShiftV(int info, const LogicalShift shift)
 {
 	pxAssert(_Rs_ != 0);
 
 	recMoveSToRCX(info);
 	recMoveTtoD(info);
-	shift(xRegister32(EEREC_D), cl);
-	xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
+
+    auto reg32 = a64::WRegister(EEREC_D);
+
+//	shift(xRegister32(EEREC_D), cl);
+    switch (shift) {
+        case LogicalShift::xSHL:
+            armAsm->Lsl(reg32, reg32, ECX);
+            break;
+        case LogicalShift::xSHR:
+            armAsm->Lsr(reg32, reg32, ECX);
+            break;
+        case LogicalShift::xSAR:
+            armAsm->Asr(reg32, reg32, ECX);
+            break;
+    }
+//	xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
+    armAsm->Sxtw(a64::XRegister(EEREC_D), reg32);
 }
 
-static void recDShiftV_constt(int info, const xImpl_Group2& shift)
+static void recDShiftV_constt(int info, const LogicalShift shift)
 {
 	pxAssert(_Rs_ != 0);
 	recMoveSToRCX(info);
-	xMOV64(xRegister64(EEREC_D), g_cpuConstRegs[_Rt_].SD[0]);
-	shift(xRegister64(EEREC_D), cl);
+
+    auto reg64 = a64::XRegister(EEREC_D);
+
+//	xMOV64(xRegister64(EEREC_D), g_cpuConstRegs[_Rt_].SD[0]);
+    armAsm->Mov(reg64, g_cpuConstRegs[_Rt_].SD[0]);
+//	shift(xRegister64(EEREC_D), cl);
+    switch (shift) {
+        case LogicalShift::xSHL:
+            armAsm->Lsl(reg64, reg64, RCX);
+            break;
+        case LogicalShift::xSHR:
+            armAsm->Lsr(reg64, reg64, RCX);
+            break;
+        case LogicalShift::xSAR:
+            armAsm->Asr(reg64, reg64, RCX);
+            break;
+    }
 }
 
-static void recDShiftV(int info, const xImpl_Group2& shift)
+static void recDShiftV(int info, const LogicalShift shift)
 {
 	pxAssert(_Rs_ != 0);
 	recMoveSToRCX(info);
 	recMoveTtoD64(info);
-	shift(xRegister64(EEREC_D), cl);
+
+    auto reg64 = a64::XRegister(EEREC_D);
+
+//	shift(xRegister64(EEREC_D), cl);
+    switch (shift) {
+        case LogicalShift::xSHL:
+            armAsm->Lsl(reg64, reg64, RCX);
+            break;
+        case LogicalShift::xSHR:
+            armAsm->Lsr(reg64, reg64, RCX);
+            break;
+        case LogicalShift::xSAR:
+            armAsm->Asr(reg64, reg64, RCX);
+            break;
+    }
 }
 
 //// SLLV
@@ -290,12 +398,12 @@ static void recSLLV_consts(int info)
 
 static void recSLLV_constt(int info)
 {
-	recShiftV_constt(info, xSHL);
+	recShiftV_constt(info, LogicalShift::xSHL);
 }
 
 static void recSLLV_(int info)
 {
-	recShiftV(info, xSHL);
+	recShiftV(info, LogicalShift::xSHL);
 }
 
 EERECOMPILE_CODERC0(SLLV, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED);
@@ -313,12 +421,12 @@ static void recSRLV_consts(int info)
 
 static void recSRLV_constt(int info)
 {
-	recShiftV_constt(info, xSHR);
+	recShiftV_constt(info, LogicalShift::xSHR);
 }
 
 static void recSRLV_(int info)
 {
-	recShiftV(info, xSHR);
+	recShiftV(info, LogicalShift::xSHR);
 }
 
 EERECOMPILE_CODERC0(SRLV, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED);
@@ -336,12 +444,12 @@ static void recSRAV_consts(int info)
 
 static void recSRAV_constt(int info)
 {
-	recShiftV_constt(info, xSAR);
+	recShiftV_constt(info, LogicalShift::xSAR);
 }
 
 static void recSRAV_(int info)
 {
-	recShiftV(info, xSAR);
+	recShiftV(info, LogicalShift::xSAR);
 }
 
 EERECOMPILE_CODERC0(SRAV, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED);
@@ -360,12 +468,12 @@ static void recDSLLV_consts(int info)
 
 static void recDSLLV_constt(int info)
 {
-	recDShiftV_constt(info, xSHL);
+	recDShiftV_constt(info, LogicalShift::xSHL);
 }
 
 static void recDSLLV_(int info)
 {
-	recDShiftV(info, xSHL);
+	recDShiftV(info, LogicalShift::xSHL);
 }
 
 EERECOMPILE_CODERC0(DSLLV, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED | XMMINFO_64BITOP);
@@ -384,12 +492,12 @@ static void recDSRLV_consts(int info)
 
 static void recDSRLV_constt(int info)
 {
-	recDShiftV_constt(info, xSHR);
+	recDShiftV_constt(info, LogicalShift::xSHR);
 }
 
 static void recDSRLV_(int info)
 {
-	recDShiftV(info, xSHR);
+	recDShiftV(info, LogicalShift::xSHR);
 }
 
 EERECOMPILE_CODERC0(DSRLV, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED | XMMINFO_64BITOP);
@@ -408,12 +516,12 @@ static void recDSRAV_consts(int info)
 
 static void recDSRAV_constt(int info)
 {
-	recDShiftV_constt(info, xSAR);
+	recDShiftV_constt(info, LogicalShift::xSAR);
 }
 
 static void recDSRAV_(int info)
 {
-	recDShiftV(info, xSAR);
+	recDShiftV(info, LogicalShift::xSAR);
 }
 
 EERECOMPILE_CODERC0(DSRAV, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED | XMMINFO_64BITOP);

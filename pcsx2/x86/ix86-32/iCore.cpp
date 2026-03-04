@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
+// SPDX-FileCopyrightText: 2002-2025 PCSX2 Dev Team
 // SPDX-License-Identifier: GPL-3.0+
 
 #include "R3000A.h"
@@ -10,7 +10,9 @@
 #include "common/Console.h"
 #include "common/emitter/x86emitter.h"
 
+#if !defined(__ANDROID__)
 using namespace x86Emitter;
+#endif
 
 // yay sloppy crap needed until we can remove dependency on this hippopotamic
 // landmass of shared code. (air)
@@ -30,65 +32,84 @@ void _initX86regs()
 
 int _getFreeX86reg(int mode)
 {
-	int tempi = -1;
-	u32 bestcount = 0x10000;
+    int i, tempi = -1;
+    u32 bestcount = 0x10000;
 
-	for (uint i = 0; i < iREGCNT_GPR; i++)
-	{
-		const int reg = (g_x86checknext + i) % iREGCNT_GPR;
-		if (x86regs[reg].inuse || !_isAllocatableX86reg(reg))
-			continue;
+    for (i = 0; i < iREGCNT_GPR; ++i)
+    {
+        const int reg = (g_x86checknext + i) % iREGCNT_GPR;
+        if (x86regs[reg].inuse || !_isAllocatableX86reg(reg))
+            continue;
 
-		if ((mode & MODE_CALLEESAVED) && xRegister32::IsCallerSaved(reg))
-			continue;
+//        if ((mode & MODE_CALLEESAVED) && xRegister32::IsCallerSaved(reg))
+//            continue;
 
-		if ((mode & MODE_COP2) && mVUIsReservedCOP2(reg))
-			continue;
+        if (mode & MODE_CALLEESAVED) {
+            if(!armIsCalleeSavedRegister(reg)) {
+                continue;
+            }
+        } else {
+            if(!armIsCallerSaved(reg)) {
+                continue;
+            }
+        }
 
-		if (x86regs[reg].inuse == 0)
-		{
-			g_x86checknext = (reg + 1) % iREGCNT_GPR;
-			return reg;
-		}
-	}
+        if ((mode & MODE_COP2) && mVUIsReservedCOP2(reg))
+            continue;
 
-	for (uint i = 0; i < iREGCNT_GPR; i++)
-	{
-		if (!_isAllocatableX86reg(i))
-			continue;
+        if (x86regs[reg].inuse == 0)
+        {
+            g_x86checknext = (reg + 1) % iREGCNT_GPR;
+            return reg;
+        }
+    }
 
-		if ((mode & MODE_CALLEESAVED) && xRegister32::IsCallerSaved(i))
-			continue;
+    for (i = 0; i < iREGCNT_GPR; ++i)
+    {
+        if (!_isAllocatableX86reg(i))
+            continue;
 
-		if ((mode & MODE_COP2) && mVUIsReservedCOP2(i))
-			continue;
+//        if ((mode & MODE_CALLEESAVED) && xRegister32::IsCallerSaved(i))
+//            continue;
 
-		// should have checked inuse in the previous loop.
-		pxAssert(x86regs[i].inuse);
+        if (mode & MODE_CALLEESAVED) {
+            if(!armIsCalleeSavedRegister(i)) {
+                continue;
+            }
+        } else {
+            if(!armIsCallerSaved(i)) {
+                continue;
+            }
+        }
 
-		if (x86regs[i].needed)
-			continue;
+        if ((mode & MODE_COP2) && mVUIsReservedCOP2(i))
+            continue;
 
-		if (x86regs[i].type != X86TYPE_TEMP)
-		{
+        // should have checked inuse in the previous loop.
+        pxAssert(x86regs[i].inuse);
 
-			if (x86regs[i].counter < bestcount)
-			{
-				tempi = static_cast<int>(i);
-				bestcount = x86regs[i].counter;
-			}
-			continue;
-		}
+        if (x86regs[i].needed)
+            continue;
 
-		_freeX86reg(i);
-		return i;
-	}
+        if (x86regs[i].type != X86TYPE_TEMP)
+        {
+            if (x86regs[i].counter < bestcount)
+            {
+                tempi = static_cast<int>(i);
+                bestcount = x86regs[i].counter;
+            }
+            continue;
+        }
 
-	if (tempi != -1)
-	{
-		_freeX86reg(tempi);
-		return tempi;
-	}
+        _freeX86reg(i);
+        return i;
+    }
+
+    if (tempi != -1)
+    {
+        _freeX86reg(tempi);
+        return tempi;
+    }
 
 	pxFailRel("x86 register allocation error");
 	return -1;
@@ -98,7 +119,8 @@ void _flushConstReg(int reg)
 {
 	if (GPR_IS_CONST1(reg) && !(g_cpuFlushedConstReg & (1 << reg)))
 	{
-		xWriteImm64ToMem(&cpuRegs.GPR.r[reg].UD[0], rax, g_cpuConstRegs[reg].SD[0]);
+//		xWriteImm64ToMem(&cpuRegs.GPR.r[reg].UD[0], rax, g_cpuConstRegs[reg].SD[0]);
+        armStore64(PTR_CPU(cpuRegs.GPR.r[reg].UD[0]), g_cpuConstRegs[reg].SD[0]);
 		g_cpuFlushedConstReg |= (1 << reg);
 		if (reg == 0)
 			DevCon.Warning("Flushing r0!");
@@ -109,7 +131,8 @@ void _flushConstRegs(bool delete_const)
 {
 	int zero_reg_count = 0;
 	int minusone_reg_count = 0;
-	for (u32 i = 0; i < 32; i++)
+    u32 i;
+	for (i = 0; i < 32; ++i)
 	{
 		if (!GPR_IS_CONST1(i) || g_cpuFlushedConstReg & (1u << i))
 			continue;
@@ -124,15 +147,17 @@ void _flushConstRegs(bool delete_const)
 	bool rax_is_zero = false;
 	if (zero_reg_count > 1)
 	{
-		xXOR(eax, eax);
-		for (u32 i = 0; i < 32; i++)
+//		xXOR(eax, eax);
+        armAsm->Eor(EAX, EAX, EAX);
+		for (i = 0; i < 32; ++i)
 		{
 			if (!GPR_IS_CONST1(i) || g_cpuFlushedConstReg & (1u << i))
 				continue;
 
 			if (g_cpuConstRegs[i].SD[0] == 0)
 			{
-				xMOV(ptr64[&cpuRegs.GPR.r[i].UD[0]], rax);
+//				xMOV(ptr64[&cpuRegs.GPR.r[i].UD[0]], rax);
+                armStore(PTR_CPU(cpuRegs.GPR.r[i].UD[0]), RAX);
 				g_cpuFlushedConstReg |= 1u << i;
 				if (delete_const)
 					g_cpuHasConstReg &= ~(1u << i);
@@ -142,19 +167,24 @@ void _flushConstRegs(bool delete_const)
 	}
 	if (minusone_reg_count > 1)
 	{
-		if (!rax_is_zero)
-			xMOV(rax, -1);
-		else
-			xNOT(rax);
+		if (!rax_is_zero) {
+//            xMOV(rax, -1);
+            armAsm->Mov(RAX, -1);
+        }
+		else {
+//            xNOT(rax);
+            armAsm->Mvn(RAX, RAX);
+        }
 
-		for (u32 i = 0; i < 32; i++)
+		for (i = 0; i < 32; ++i)
 		{
 			if (!GPR_IS_CONST1(i) || g_cpuFlushedConstReg & (1u << i))
 				continue;
 
 			if (g_cpuConstRegs[i].SD[0] == -1)
 			{
-				xMOV(ptr64[&cpuRegs.GPR.r[i].UD[0]], rax);
+//				xMOV(ptr64[&cpuRegs.GPR.r[i].UD[0]], rax);
+                armStore(PTR_CPU(cpuRegs.GPR.r[i].UD[0]), RAX);
 				g_cpuFlushedConstReg |= 1u << i;
 				if (delete_const)
 					g_cpuHasConstReg &= ~(1u << i);
@@ -163,12 +193,13 @@ void _flushConstRegs(bool delete_const)
 	}
 
 	// and whatever's left over..
-	for (u32 i = 0; i < 32; i++)
+	for (i = 0; i < 32; ++i)
 	{
 		if (!GPR_IS_CONST1(i) || g_cpuFlushedConstReg & (1u << i))
 			continue;
 
-		xWriteImm64ToMem(&cpuRegs.GPR.r[i].UD[0], rax, g_cpuConstRegs[i].UD[0]);
+//		xWriteImm64ToMem(&cpuRegs.GPR.r[i].UD[0], rax, g_cpuConstRegs[i].UD[0]);
+        armStore64(PTR_CPU(cpuRegs.GPR.r[i].UD[0]), g_cpuConstRegs[i].UD[0]);
 		g_cpuFlushedConstReg |= 1u << i;
 		if (delete_const)
 			g_cpuHasConstReg &= ~(1u << i);
@@ -182,6 +213,8 @@ void _validateRegs()
 	// check that no two registers are in write mode in both fprs and gprs
 	for (s8 guestreg = 0; guestreg < 32; guestreg++)
 	{
+        if(guestreg == 3) continue;
+
 		u32 gprreg = 0, gprmode = 0;
 		u32 fprreg = 0, fprmode = 0;
 		for (u32 hostreg = 0; hostreg < iREGCNT_GPR; hostreg++)
@@ -225,7 +258,8 @@ int _allocX86reg(int type, int reg, int mode)
 	int hostXMMreg = (type == X86TYPE_GPR) ? _checkXMMreg(XMMTYPE_GPRREG, reg, 0) : -1;
 	if (type != X86TYPE_TEMP)
 	{
-		for (int i = 0; i < static_cast<int>(iREGCNT_GPR); i++)
+        int i, e = static_cast<int>(iREGCNT_GPR);
+		for (i = 0; i < e; ++i)
 		{
 			if (!x86regs[i].inuse || x86regs[i].type != type || x86regs[i].reg != reg)
 				continue;
@@ -285,7 +319,7 @@ int _allocX86reg(int type, int reg, int mode)
 	}
 
 	const int regnum = _getFreeX86reg(mode);
-	xRegister64 new_reg(regnum);
+    a64::XRegister new_reg(regnum);
 	x86regs[regnum].type = type;
 	x86regs[regnum].reg = reg;
 	x86regs[regnum].mode = mode & ~MODE_CALLEESAVED;
@@ -306,7 +340,8 @@ int _allocX86reg(int type, int reg, int mode)
 			{
 				if (reg == 0)
 				{
-					xXOR(xRegister32(new_reg), xRegister32(new_reg)); // 32-bit is smaller and zexts anyway
+//					xXOR(xRegister32(new_reg), xRegister32(new_reg)); // 32-bit is smaller and zexts anyway
+                    armAsm->Eor(new_reg, new_reg, new_reg);
 				}
 				else
 				{
@@ -314,7 +349,8 @@ int _allocX86reg(int type, int reg, int mode)
 					{
 						// is in a XMM. we don't need to free the XMM since we're not writing, and it's still valid
 						RALOG("Copying %d from XMM %d to GPR %d on read\n", reg, hostXMMreg, regnum);
-						xMOVD(new_reg, xRegisterSSE(hostXMMreg)); // actually MOVQ
+//						xMOVD(new_reg, xRegisterSSE(hostXMMreg)); // actually MOVQ
+                        armAsm->Fmov(new_reg, a64::QRegister(hostXMMreg).V1D());
 
 						// if the XMM was dirty, just get rid of it, we don't want to try to sync the values up...
 						if (xmmregs[hostXMMreg].mode & MODE_WRITE)
@@ -325,7 +361,8 @@ int _allocX86reg(int type, int reg, int mode)
 					}
 					else if (GPR_IS_CONST1(reg))
 					{
-						xMOV64(new_reg, g_cpuConstRegs[reg].SD[0]);
+//						xMOV64(new_reg, g_cpuConstRegs[reg].SD[0]);
+                        armAsm->Mov(new_reg, g_cpuConstRegs[reg].SD[0]);
 						g_cpuFlushedConstReg |= (1u << reg);
 						x86regs[regnum].mode |= MODE_WRITE; // reg is dirty
 
@@ -335,7 +372,8 @@ int _allocX86reg(int type, int reg, int mode)
 					{
 						// not loaded
 						RALOG("Loading guest reg %d to GPR %d\n", reg, regnum);
-						xMOV(new_reg, ptr64[&cpuRegs.GPR.r[reg].UD[0]]);
+//						xMOV(new_reg, ptr64[&cpuRegs.GPR.r[reg].UD[0]]);
+                        armLoad(new_reg, PTR_CPU(cpuRegs.GPR.r[reg].UD[0]));
 					}
 				}
 			}
@@ -343,21 +381,25 @@ int _allocX86reg(int type, int reg, int mode)
 
 			case X86TYPE_FPRC:
 				RALOG("Loading guest reg FPCR %d to GPR %d\n", reg, regnum);
-				xMOV(xRegister32(regnum), ptr32[&fpuRegs.fprc[reg]]);
+//				xMOV(xRegister32(regnum), ptr32[&fpuRegs.fprc[reg]]);
+                armLoad(a64::WRegister(regnum), PTR_CPU(fpuRegs.fprc[reg]));
 				break;
 
 			case X86TYPE_PSX:
 			{
-				const xRegister32 new_reg32(regnum);
+//				const xRegister32 new_reg32(regnum);
+                const a64::WRegister new_reg32(regnum);
 				if (reg == 0)
 				{
-					xXOR(new_reg32, new_reg32);
+//					xXOR(new_reg32, new_reg32);
+                    armAsm->Eor(new_reg32, new_reg32, new_reg32);
 				}
 				else
 				{
 					if (PSX_IS_CONST1(reg))
 					{
-						xMOV(new_reg32, g_psxConstRegs[reg]);
+//						xMOV(new_reg32, g_psxConstRegs[reg]);
+                        armAsm->Mov(new_reg32, g_psxConstRegs[reg]);
 						g_psxFlushedConstReg |= (1u << reg);
 						x86regs[regnum].mode |= MODE_WRITE; // reg is dirty
 
@@ -366,7 +408,8 @@ int _allocX86reg(int type, int reg, int mode)
 					else
 					{
 						RALOG("Loading guest PSX reg %d to GPR %d\n", reg, regnum);
-						xMOV(new_reg32, ptr32[&psxRegs.GPR.r[reg]]);
+//						xMOV(new_reg32, ptr32[&psxRegs.GPR.r[reg]]);
+                        armLoad(new_reg32, PTR_CPU(psxRegs.GPR.r[reg]));
 					}
 				}
 			}
@@ -375,7 +418,8 @@ int _allocX86reg(int type, int reg, int mode)
 			case X86TYPE_VIREG:
 			{
 				RALOG("Loading guest VI reg %d to GPR %d", reg, regnum);
-				xMOVZX(xRegister32(regnum), ptr16[&VU0.VI[reg].US[0]]);
+//				xMOVZX(xRegister32(regnum), ptr16[&VU0.VI[reg].US[0]]);
+                armAsm->Ldrh(a64::WRegister(regnum), PTR_CPU(vuRegs[0].VI[reg].US[0]));
 			}
 			break;
 
@@ -418,32 +462,38 @@ void _writebackX86Reg(int x86reg)
 	{
 		case X86TYPE_GPR:
 			RALOG("Writing back GPR reg %d for guest reg %d P2\n", x86reg, x86regs[x86reg].reg);
-			xMOV(ptr64[&cpuRegs.GPR.r[x86regs[x86reg].reg].UD[0]], xRegister64(x86reg));
+//			xMOV(ptr64[&cpuRegs.GPR.r[x86regs[x86reg].reg].UD[0]], xRegister64(x86reg));
+            armStore(PTR_CPU(cpuRegs.GPR.r[x86regs[x86reg].reg].UD[0]), a64::XRegister(x86reg));
 			break;
 
 		case X86TYPE_FPRC:
 			RALOG("Writing back GPR reg %d for guest reg FPCR %d P2\n", x86reg, x86regs[x86reg].reg);
-			xMOV(ptr32[&fpuRegs.fprc[x86regs[x86reg].reg]], xRegister32(x86reg));
+//			xMOV(ptr32[&fpuRegs.fprc[x86regs[x86reg].reg]], xRegister32(x86reg));
+            armStore(PTR_CPU(fpuRegs.fprc[x86regs[x86reg].reg]), a64::WRegister(x86reg));
 			break;
 
 		case X86TYPE_VIREG:
 			RALOG("Writing back VI reg %d for guest reg %d P2\n", x86reg, x86regs[x86reg].reg);
-			xMOV(ptr16[&VU0.VI[x86regs[x86reg].reg].UL], xRegister16(x86reg));
+//			xMOV(ptr16[&VU0.VI[x86regs[x86reg].reg].UL], xRegister16(x86reg));
+            armAsm->Strh(a64::WRegister(x86reg), PTR_CPU(vuRegs[0].VI[x86regs[x86reg].reg].UL));
 			break;
 
 		case X86TYPE_PCWRITEBACK:
 			RALOG("Writing back PC writeback in host reg %d\n", x86reg);
-			xMOV(ptr32[&cpuRegs.pcWriteback], xRegister32(x86reg));
+//			xMOV(ptr32[&cpuRegs.pcWriteback], xRegister32(x86reg));
+            armStore(PTR_CPU(cpuRegs.pcWriteback), a64::WRegister(x86reg));
 			break;
 
 		case X86TYPE_PSX:
 			RALOG("Writing back PSX GPR reg %d for guest reg %d P2\n", x86reg, x86regs[x86reg].reg);
-			xMOV(ptr32[&psxRegs.GPR.r[x86regs[x86reg].reg]], xRegister32(x86reg));
+//			xMOV(ptr32[&psxRegs.GPR.r[x86regs[x86reg].reg]], xRegister32(x86reg));
+            armStore(PTR_CPU(psxRegs.GPR.r[x86regs[x86reg].reg]), a64::WRegister(x86reg));
 			break;
 
 		case X86TYPE_PSX_PCWRITEBACK:
 			RALOG("Writing back PSX PC writeback in host reg %d\n", x86reg);
-			xMOV(ptr32[&psxRegs.pcWriteback], xRegister32(x86reg));
+//			xMOV(ptr32[&psxRegs.pcWriteback], xRegister32(x86reg));
+            armStore(PTR_CPU(psxRegs.pcWriteback), a64::WRegister(x86reg));
 			break;
 
 		default:
@@ -454,7 +504,8 @@ void _writebackX86Reg(int x86reg)
 
 int _checkX86reg(int type, int reg, int mode)
 {
-	for (uint i = 0; i < iREGCNT_GPR; i++)
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (x86regs[i].inuse && x86regs[i].reg == reg && x86regs[i].type == type)
 		{
@@ -492,7 +543,8 @@ int _checkX86reg(int type, int reg, int mode)
 
 void _addNeededX86reg(int type, int reg)
 {
-	for (uint i = 0; i < iREGCNT_GPR; i++)
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (!x86regs[i].inuse || x86regs[i].reg != reg || x86regs[i].type != type)
 			continue;
@@ -504,7 +556,8 @@ void _addNeededX86reg(int type, int reg)
 
 void _clearNeededX86regs()
 {
-	for (uint i = 0; i < iREGCNT_GPR; i++)
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (x86regs[i].needed)
 		{
@@ -515,9 +568,9 @@ void _clearNeededX86regs()
 	}
 }
 
-void _freeX86reg(const x86Emitter::xRegister32& x86reg)
+void _freeX86reg(const a64::Register& x86reg)
 {
-	_freeX86reg(x86reg.GetId());
+	_freeX86reg(x86reg.GetCode());
 }
 
 void _freeX86reg(int x86reg)
@@ -556,18 +609,22 @@ void _freeX86regWithoutWriteback(int x86reg)
 
 void _freeX86regs()
 {
-	for (uint i = 0; i < iREGCNT_GPR; i++)
-		_freeX86reg(i);
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
+    {
+        _freeX86reg(i);
+    }
 }
 
 void _flushX86regs()
 {
-	for (u32 i = 0; i < iREGCNT_GPR; ++i)
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (x86regs[i].inuse && x86regs[i].mode & MODE_WRITE)
 		{
 			// shouldn't be const, because if we got to write mode, we should've flushed then
-			pxAssert(x86regs[i].type != X86TYPE_GPR || !GPR_IS_DIRTY_CONST(x86regs[i].reg));
+//			pxAssert(x86regs[i].type != X86TYPE_GPR || !GPR_IS_DIRTY_CONST(x86regs[i].reg));
 
 			RALOG("Flushing x86 reg %u in _eeFlushAllDirty()\n", i);
 			_writebackX86Reg(i);

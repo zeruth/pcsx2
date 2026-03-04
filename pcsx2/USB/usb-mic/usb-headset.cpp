@@ -965,7 +965,7 @@ namespace usb_mic
 
 	const char* HeadsetDevice::IconName() const
 	{
-		return ICON_PF_HEADSET;
+		return TRANSLATE_NOOP("USB", "Logitech USB Headset");
 	}
 
 	bool HeadsetDevice::Freeze(USBDevice* dev, StateWrapper& sw) const

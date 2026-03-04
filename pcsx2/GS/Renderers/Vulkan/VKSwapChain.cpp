@@ -17,6 +17,9 @@
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 #include <X11/Xlib.h>
 #endif
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+#include <SDL3/SDL_vulkan.h>
+#endif
 
 static_assert(VKSwapChain::NUM_SEMAPHORES == (GSDeviceVK::NUM_COMMAND_BUFFERS + 1));
 
@@ -122,6 +125,27 @@ VkSurfaceKHR VKSwapChain::CreateVulkanSurface(VkInstance instance, VkPhysicalDev
 
 		return surface;
 	}
+#endif
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+	if (wi->type == WindowInfo::Type::Android)
+    {
+		VkAndroidSurfaceCreateInfoKHR surface_create_info = {
+				VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR, // VkStructureType                sType
+				nullptr, // const void*                    pNext
+				0, // VkAndroidSurfaceCreateFlagsKHR flags
+				reinterpret_cast<ANativeWindow*>(wi->window_handle) // ANativeWindow* window
+		};
+
+		VkSurfaceKHR surface;
+		VkResult res = vkCreateAndroidSurfaceKHR(instance, &surface_create_info, nullptr, &surface);
+		if (res != VK_SUCCESS)
+		{
+			LOG_VULKAN_ERROR(res, "vkCreateAndroidSurfaceKHR failed: ");
+			return VK_NULL_HANDLE;
+		}
+
+    return surface;
+    }
 #endif
 
 	return VK_NULL_HANDLE;

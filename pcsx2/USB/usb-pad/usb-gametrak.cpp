@@ -285,7 +285,7 @@ namespace usb_pad
 
 	const char* GametrakDevice::IconName() const
 	{
-		return ICON_PF_GAMETRAK_DEVICE;
+		return "Gametrak";
 	}
 
 	USBDevice* GametrakDevice::CreateDevice(SettingsInterface& si, u32 port, u32 subtype) const

@@ -494,7 +494,7 @@ namespace usb_eyetoy
 
 	const char* EyeToyWebCamDevice::IconName() const
 	{
-		return ICON_PF_EYETOY_WEBCAM;
+		return "webcam";
 	}
 
 	bool EyeToyWebCamDevice::Freeze(USBDevice* dev, StateWrapper& sw) const

@@ -30,9 +30,11 @@
 #pragma once
 
 #include "common/emitter/x86types.h"
+#if !defined(__ANDROID__)
 #include "common/emitter/instructions.h"
 
 // Including legacy items for now, but these should be removed eventually,
 // once most code is no longer dependent on them.
 #include "common/emitter/legacy_types.h"
 #include "common/emitter/legacy_instructions.h"
+#endif

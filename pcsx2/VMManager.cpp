@@ -1202,7 +1202,7 @@ bool VMManager::AutoDetectSource(const std::string& filename, Error* error)
 {
 	if (!filename.empty())
 	{
-		if (!FileSystem::FileExists(filename.c_str()))
+		if (filename.rfind("content://", 0) != 0 && !FileSystem::FileExists(filename.c_str()))
 		{
 			Error::SetStringFmt(error, TRANSLATE_FS("VMManager", "Requested filename '{}' does not exist."), filename);
 			return false;
@@ -1303,12 +1303,13 @@ void VMManager::InitializeAsync(
 VMBootResult VMManager::Initialize(const VMBootParameters& boot_params, Error* error)
 {
 	const Common::Timer init_timer;
+    Console.Error("0");
 	if (s_state.load(std::memory_order_acquire) != VMState::Shutdown)
 	{
 		Error::SetString(error, TRANSLATE_STR("VMManager", "The virtual machine is already running."));
 		return VMBootResult::StartupFailure;
 	}
-
+	Console.Error("1");
 	// cancel any game list scanning, we need to use CDVD!
 	// TODO: we can get rid of this once, we make CDVD not use globals...
 	// (or make it thread-local, but that seems silly.)
@@ -1318,7 +1319,7 @@ VMBootResult VMManager::Initialize(const VMBootParameters& boot_params, Error* e
 	s_vm_thread_handle = Threading::ThreadHandle::GetForCallingThread();
 	Host::OnVMStarting();
 	VMManager::Internal::ResetVMHotkeyState();
-
+	Console.Error("2");
 	ScopedGuard close_state = [] {
 		if (GSDumpReplayer::IsReplayingDump())
 			GSDumpReplayer::Shutdown();
@@ -1337,7 +1338,7 @@ VMBootResult VMManager::Initialize(const VMBootParameters& boot_params, Error* e
 		Host::OnVMDestroyed();
 		ApplySettings();
 	};
-
+	Console.Error("3");
 	std::string state_to_load;
 
 	s_elf_override = boot_params.elf_override;
@@ -1362,16 +1363,17 @@ VMBootResult VMManager::Initialize(const VMBootParameters& boot_params, Error* e
 			return VMBootResult::StartupFailure;
 		}
 	}
-
+	Console.Error("4");
 	if (!cdvdLock(error))
 		return VMBootResult::StartupFailure;
 
 	ScopedGuard unlock_cdvd = &cdvdUnlock;
-
+	Console.Error("5");
 	// resolve source type
 	if (boot_params.source_type.has_value())
 	{
 		if (boot_params.source_type.value() == CDVD_SourceType::Iso &&
+			boot_params.filename.rfind("content://", 0) != 0 &&
 			!FileSystem::FileExists(boot_params.filename.c_str()))
 		{
 			Error::SetStringFmt(error,
@@ -1389,7 +1391,7 @@ VMBootResult VMManager::Initialize(const VMBootParameters& boot_params, Error* e
 		if (!AutoDetectSource(boot_params.filename, error))
 			return VMBootResult::StartupFailure;
 	}
-
+	Console.Error("6");
 	ScopedGuard close_cdvd_files(&CDVDsys_ClearFiles);
 
 	// Playing GS dumps don't need a BIOS.
@@ -1412,7 +1414,7 @@ VMBootResult VMManager::Initialize(const VMBootParameters& boot_params, Error* e
 		// Must happen after BIOS load, depends on BIOS version.
 		cdvdLoadNVRAM();
 	}
-
+	Console.Error("7");
 	Error cdvd_error;
 	Console.WriteLn("Opening CDVD...");
 	if (!DoCDVDopen(&cdvd_error))
@@ -1435,7 +1437,7 @@ VMBootResult VMManager::Initialize(const VMBootParameters& boot_params, Error* e
 		(boot_params.fast_boot.value_or(static_cast<bool>(EmuConfig.EnableFastBoot)) || !s_elf_override.empty()) &&
 		(CDVDsys_GetSourceType() != CDVD_SourceType::NoDisc || !s_elf_override.empty()) &&
 		!GSDumpReplayer::IsReplayingDump();
-
+	Console.Error("8");
 	if (!s_elf_override.empty())
 	{
 		if (!FileSystem::FileExists(s_elf_override.c_str()))
@@ -1591,7 +1593,6 @@ VMBootResult VMManager::Initialize(const VMBootParameters& boot_params, Error* e
 	Host::OnVMStarted();
 	FullscreenUI::OnVMStarted();
 	UpdateInhibitScreensaver(EmuConfig.InhibitScreensaver);
-
 	SetEmuThreadAffinities();
 
 	// do we want to load state?
@@ -2614,18 +2615,11 @@ void VMManager::LogCPUCapabilities()
 
 void VMManager::InitializeCPUProviders()
 {
-#ifdef _M_X86 // TODO(Stenzek): Remove me once EE/VU/IOP recs are added.
 	recCpu.Reserve();
 	psxRec.Reserve();
 
 	CpuMicroVU0.Reserve();
 	CpuMicroVU1.Reserve();
-#else
-	// Despite not having any VU recompilers on ARM64, therefore no MTVU,
-	// we still need the thread alive. Otherwise the read and write positions
-	// of the ring buffer wont match, and various systems in the emulator end up deadlocked.
-	vu1Thread.Open();
-#endif
 
 	VifUnpackSSE_Init();
 }
@@ -2638,18 +2632,11 @@ void VMManager::ShutdownCPUProviders()
 		dVifRelease(0);
 	}
 
-#ifdef _M_X86 // TODO(Stenzek): Remove me once EE/VU/IOP recs are added.
 	CpuMicroVU1.Shutdown();
 	CpuMicroVU0.Shutdown();
 
 	psxRec.Shutdown();
 	recCpu.Shutdown();
-#else
-	// See the comment in the InitializeCPUProviders for an explaination why we
-	// still need to manage the MTVU thread.
-	if (vu1Thread.IsOpen())
-		vu1Thread.WaitVU();
-#endif
 }
 
 void VMManager::UpdateCPUImplementations()
@@ -2663,19 +2650,11 @@ void VMManager::UpdateCPUImplementations()
 		return;
 	}
 
-#ifdef _M_X86 // TODO(Stenzek): Remove me once EE/VU/IOP recs are added.
 	Cpu = CHECK_EEREC ? &recCpu : &intCpu;
 	psxCpu = CHECK_IOPREC ? &psxRec : &psxInt;
 
 	CpuVU0 = EmuConfig.Cpu.Recompiler.EnableVU0 ? static_cast<BaseVUmicroCPU*>(&CpuMicroVU0) : static_cast<BaseVUmicroCPU*>(&CpuIntVU0);
 	CpuVU1 = EmuConfig.Cpu.Recompiler.EnableVU1 ? static_cast<BaseVUmicroCPU*>(&CpuMicroVU1) : static_cast<BaseVUmicroCPU*>(&CpuIntVU1);
-#else
-	Cpu = &intCpu;
-	psxCpu = &psxInt;
-
-	CpuVU0 = &CpuIntVU0;
-	CpuVU1 = &CpuIntVU1;
-#endif
 }
 
 void VMManager::Internal::ClearCPUExecutionCaches()
@@ -2683,11 +2662,9 @@ void VMManager::Internal::ClearCPUExecutionCaches()
 	Cpu->Reset();
 	psxCpu->Reset();
 
-#ifdef _M_X86 // TODO(Stenzek): Remove me once EE/VU/IOP recs are added.
 	// mVU's VU0 needs to be properly initialized for macro mode even if it's not used for micro mode!
 	if (CHECK_EEREC && !EmuConfig.Cpu.Recompiler.EnableVU0)
 		CpuMicroVU0.Reset();
-#endif
 
 	CpuVU0->Reset();
 	CpuVU1->Reset();
@@ -3393,11 +3370,12 @@ void VMManager::UpdateInhibitScreensaver(bool inhibit)
 {
 	if (s_screensaver_inhibited == inhibit)
 		return;
-
+#if !defined(__ANDROID__)
 	if (Common::InhibitScreensaver(inhibit))
 		s_screensaver_inhibited = inhibit;
 	else if (inhibit)
 		Console.Warning("Failed to inhibit screen saver.");
+#endif
 }
 
 void VMManager::SaveSessionTime(const std::string& prev_serial)

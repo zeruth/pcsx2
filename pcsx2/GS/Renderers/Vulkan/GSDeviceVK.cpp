@@ -201,6 +201,11 @@ bool GSDeviceVK::SelectInstanceExtensions(ExtensionList* extension_list, const W
 	if (wi.type == WindowInfo::Type::MacOS && !SupportsExtension(VK_EXT_METAL_SURFACE_EXTENSION_NAME, true))
 		return false;
 #endif
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+	if (wi.type == WindowInfo::Type::Android &&
+        !SupportsExtension(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME, true))
+        return false;
+#endif
 
 	// VK_EXT_debug_utils
 	if (enable_debug_utils && !SupportsExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, false))
@@ -2118,6 +2123,7 @@ bool GSDeviceVK::Create(GSVSyncMode vsync_mode, bool allow_present_throttle)
 		return false;
 
 	InitializeState();
+
 	return true;
 }
 
@@ -2703,7 +2709,7 @@ bool GSDeviceVK::CheckFeatures()
 	}
 
 	m_max_texture_size = m_device_properties.limits.maxImageDimension2D;
-
+	Console.Error("Vulkan Supported");
 	return true;
 }
 

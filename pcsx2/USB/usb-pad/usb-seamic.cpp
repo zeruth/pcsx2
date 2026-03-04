@@ -344,7 +344,7 @@ namespace usb_pad
 
 	const char* SeamicDevice::IconName() const
 	{
-		return ICON_PF_SEGA_SEAMIC;
+		return "seamic";
 	}
 
 	std::span<const char*> SeamicDevice::SubTypes() const

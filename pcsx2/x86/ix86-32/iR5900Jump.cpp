@@ -1,11 +1,13 @@
-// SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
+// SPDX-FileCopyrightText: 2002-2025 PCSX2 Dev Team
 // SPDX-License-Identifier: GPL-3.0+
 
 #include "Common.h"
 #include "R5900OpcodeTables.h"
 #include "x86/iR5900.h"
 
+#if !defined(__ANDROID__)
 using namespace x86Emitter;
+#endif
 
 namespace R5900::Dynarec::OpcodeImpl
 {
@@ -54,8 +56,10 @@ void recJAL()
 	}
 	else
 	{
-		xMOV(ptr32[&cpuRegs.GPR.r[31].UL[0]], pc + 4);
-		xMOV(ptr32[&cpuRegs.GPR.r[31].UL[1]], 0);
+//		xMOV(ptr32[&cpuRegs.GPR.r[31].UL[0]], pc + 4);
+        armStore(PTR_CPU(cpuRegs.GPR.r[31].UL[0]), pc + 4);
+//		xMOV(ptr32[&cpuRegs.GPR.r[31].UL[1]], 0);
+        armStore(PTR_CPU(cpuRegs.GPR.r[31].UL[1]), 0);
 	}
 
 	recompileNextInstruction(true, false);
@@ -108,13 +112,15 @@ void recJALR()
 	if (!swap)
 	{
 		wbreg = _allocX86reg(X86TYPE_PCWRITEBACK, 0, MODE_WRITE | MODE_CALLEESAVED);
-		_eeMoveGPRtoR(xRegister32(wbreg), _Rs_);
+		_eeMoveGPRtoR(a64::WRegister(wbreg), _Rs_);
 
 		if (EmuConfig.Gamefixes.GoemonTlbHack)
 		{
-			xMOV(ecx, xRegister32(wbreg));
+//			xMOV(ecx, xRegister32(wbreg));
+            armAsm->Mov(ECX, a64::WRegister(wbreg));
 			vtlb_DynV2P();
-			xMOV(xRegister32(wbreg), eax);
+//			xMOV(xRegister32(wbreg), eax);
+            armAsm->Mov(a64::WRegister(wbreg), EAX);
 		}
 	}
 
@@ -128,7 +134,8 @@ void recJALR()
 		}
 		else
 		{
-			xWriteImm64ToMem(&cpuRegs.GPR.r[_Rd_].UD[0], rax, newpc);
+//			xWriteImm64ToMem(&cpuRegs.GPR.r[_Rd_].UD[0], rax, newpc);
+            armStore64(PTR_CPU(cpuRegs.GPR.r[_Rd_].UD[0]), newpc);
 		}
 	}
 
@@ -139,13 +146,16 @@ void recJALR()
 		// the next instruction may have flushed the register.. so reload it if so.
 		if (x86regs[wbreg].inuse && x86regs[wbreg].type == X86TYPE_PCWRITEBACK)
 		{
-			xMOV(ptr[&cpuRegs.pc], xRegister32(wbreg));
+//			xMOV(ptr[&cpuRegs.pc], xRegister32(wbreg));
+            armStore(PTR_CPU(cpuRegs.pc), a64::WRegister(wbreg));
 			x86regs[wbreg].inuse = 0;
 		}
 		else
 		{
-			xMOV(eax, ptr[&cpuRegs.pcWriteback]);
-			xMOV(ptr[&cpuRegs.pc], eax);
+//			xMOV(eax, ptr[&cpuRegs.pcWriteback]);
+            armLoad(EAX, PTR_CPU(cpuRegs.pcWriteback));
+//			xMOV(ptr[&cpuRegs.pc], eax);
+            armStore(PTR_CPU(cpuRegs.pc), EAX);
 		}
 	}
 	else
@@ -153,11 +163,12 @@ void recJALR()
 		if (GPR_IS_DIRTY_CONST(_Rs_) || _hasX86reg(X86TYPE_GPR, _Rs_, 0))
 		{
 			const int x86reg = _allocX86reg(X86TYPE_GPR, _Rs_, MODE_READ);
-			xMOV(ptr32[&cpuRegs.pc], xRegister32(x86reg));
+//			xMOV(ptr32[&cpuRegs.pc], xRegister32(x86reg));
+            armStore(PTR_CPU(cpuRegs.pc), a64::WRegister(x86reg));
 		}
 		else
 		{
-			_eeMoveGPRtoM((uptr)&cpuRegs.pc, _Rs_);
+            _eeMoveGPRtoM(PTR_CPU(cpuRegs.pc), _Rs_);
 		}
 	}
 

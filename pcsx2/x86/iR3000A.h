@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
+// SPDX-FileCopyrightText: 2002-2025 PCSX2 Dev Team
 // SPDX-License-Identifier: GPL-3.0+
 
 #pragma once
@@ -20,7 +20,7 @@ static const int psxInstCycles_Load = 0;
 #define PSX_HI XMMGPR_HI
 #define PSX_LO XMMGPR_LO
 
-extern uptr psxRecLUT[];
+alignas(16) extern uptr psxRecLUT[];
 
 void _psxFlushConstReg(int reg);
 void _psxFlushConstRegs();
@@ -31,8 +31,8 @@ void _psxFlushAllDirty();
 
 void _psxOnWriteReg(int reg);
 
-void _psxMoveGPRtoR(const x86Emitter::xRegister32& to, int fromgpr);
-void _psxMoveGPRtoM(uptr to, int fromgpr);
+void _psxMoveGPRtoR(const a64::Register& to, int fromgpr);
+void _psxMoveGPRtoM(const a64::MemOperand& to, int fromgpr);
 
 extern u32 psxpc; // recompiler pc
 extern int psxbranch; // set for branch

@@ -1207,7 +1207,7 @@ namespace usb_mic
 
 	const char* MicrophoneDevice::IconName() const
 	{
-		return ICON_PF_SINGSTAR_MIC;
+		return "singstar";
 	}
 
 	bool MicrophoneDevice::Freeze(USBDevice* dev, StateWrapper& sw) const

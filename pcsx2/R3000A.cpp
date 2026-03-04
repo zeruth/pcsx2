@@ -32,7 +32,7 @@ static constexpr uint iopWaitCycles = 384; // Keep inline with EE wait cycle max
 
 bool iopEventTestIsActive = false;
 
-alignas(16) psxRegisters psxRegs;
+// psxRegs is a static ref to g_cpuRegistersPack.psxRegs defined in arm64/cpuRegistersPack.h
 
 void psxReset()
 {
@@ -136,8 +136,12 @@ __fi void PSX_INT( IopEventId n, s32 ecycle )
 	psxRegs.eCycle[n] = ecycle;
 
 	psxSetNextBranchDelta(ecycle);
+#if defined(ANDROID)
+	const s32 iopDelta = (psxRegs.iopNextEventCycle - psxRegs.cycle) << 3; // cycle * 8
+#else
 	const float mutiplier = static_cast<float>(PS2CLK) / static_cast<float>(PSXCLK);
 	const s32 iopDelta = (psxRegs.iopNextEventCycle - psxRegs.cycle) * mutiplier;
+#endif
 
 	if (psxRegs.iopCycleEE < iopDelta)
 	{
