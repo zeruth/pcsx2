@@ -5,7 +5,7 @@
 
 #include "common/Console.h"
 
-#include <jpeglib.h>
+#include <cmake-build-release-visual-studio/vcpkg_installed/x64-windows/include/jpeglib.h>
 
 #include <csetjmp>
 

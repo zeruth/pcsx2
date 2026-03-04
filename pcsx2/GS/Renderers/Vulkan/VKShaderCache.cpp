@@ -18,7 +18,7 @@
 #include "common/Path.h"
 
 #include "fmt/format.h"
-#include "shaderc/shaderc.h"
+#include "3rdparty/shaderc/libshaderc/include/shaderc/shaderc.h"
 
 #include <cstring>
 #include <memory>

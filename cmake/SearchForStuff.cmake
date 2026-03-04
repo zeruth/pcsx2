@@ -11,19 +11,25 @@ find_package(Threads REQUIRED)
 # Avoid it by telling cmake to avoid finding frameworks while we search for libpng.
 set(FIND_FRAMEWORK_BACKUP ${CMAKE_FIND_FRAMEWORK})
 set(CMAKE_FIND_FRAMEWORK NEVER)
-find_package(PNG 1.6.40 REQUIRED)
-find_package(JPEG REQUIRED) # No version because flatpak uses libjpeg-turbo.
-find_package(ZLIB REQUIRED) # v1.3, but Mac uses the SDK version.
-find_package(Zstd 1.5.5 REQUIRED)
-find_package(LZ4 REQUIRED)
-find_package(WebP REQUIRED) # v1.3.2, spews an error on Linux because no pkg-config.
-find_package(SDL3 3.2.6 REQUIRED)
-find_package(Freetype 2.12 REQUIRED)
-find_package(plutovg 1.1.0 REQUIRED)
-find_package(plutosvg 0.0.7 REQUIRED)
 
+add_subdirectory(3rdparty/zstd EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/lz4 EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/sdl3 EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/plutovg EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/plutosvg EXCLUDE_FROM_ALL)
+
+add_subdirectory(3rdparty/harfbuzz EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/spirv-tools EXCLUDE_FROM_ALL)
+
+find_package(WebP REQUIRED)
+find_package(PNG REQUIRED)
+find_package(Freetype REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(JPEG REQUIRED)
+
+#add_subdirectory(3rdparty/glslang EXCLUDE_FROM_ALL)
 if(USE_VULKAN)
-	find_package(unofficial-shaderc CONFIG REQUIRED)
+	#add_subdirectory(3rdparty/shaderc EXCLUDE_FROM_ALL)
 endif()
 
 # Platform-specific dependencies.

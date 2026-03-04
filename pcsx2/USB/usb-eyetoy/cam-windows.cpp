@@ -12,8 +12,6 @@
 #include "jo_mpeg.h"
 #include "USB/USB.h"
 
-#include <jpeglib.h>
-
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmicrosoft-goto"

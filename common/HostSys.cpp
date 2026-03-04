@@ -6,7 +6,7 @@
 #include "VectorIntrin.h"
 
 #ifndef __APPLE__
-#include "cpuinfo.h"
+#include "3rdparty/cpuinfo/include/cpuinfo.h"
 #endif
 
 static u32 PAUSE_TIME = 0;
