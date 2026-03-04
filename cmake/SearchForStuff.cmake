@@ -23,7 +23,7 @@ find_package(plutovg 1.1.0 REQUIRED)
 find_package(plutosvg 0.0.7 REQUIRED)
 
 if(USE_VULKAN)
-	find_package(Shaderc REQUIRED)
+	find_package(unofficial-shaderc CONFIG REQUIRED)
 endif()
 
 # Platform-specific dependencies.

@@ -1,0 +1,21 @@
+{
+  "name": "pcsx2",
+  "version": "1.0.0",
+  "dependencies": [
+    "freetype",
+    "libjpeg-turbo",
+    "libpng",
+    "libwebp",
+    "lz4",
+    "plutosvg",
+    "plutovg",
+    "sdl3",
+    "shaderc",
+    "zlib",
+    "zstd",
+    "glslang",
+    "spirv-tools",
+    "spirv-headers",
+    "kddockwidgets"
+  ]
+}
