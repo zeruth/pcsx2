@@ -28,6 +28,9 @@ namespace ImGuiManager
 	/// Sets a list of fonts to use.
 	void SetFonts(std::vector<FontInfo> info);
 
+	/// Sets the path to load fonts from (Android).
+	void SetFontPath(std::string path);
+
 	/// Initializes ImGui, creates fonts, etc.
 	bool Initialize();
 

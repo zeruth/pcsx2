@@ -113,7 +113,7 @@ bool OboeAudioStream::Open() {
     builder.setDirection(oboe::Direction::Output);
     builder.setPerformanceMode(oboe::PerformanceMode::LowLatency);
     builder.setSharingMode(oboe::SharingMode::Shared);
-    builder.setFormat(oboe::AudioFormat::I16);
+    builder.setFormat(oboe::AudioFormat::Float);
     builder.setSampleRate(m_sample_rate);
     builder.setChannelCount(m_output_channels==2 ? oboe::ChannelCount::Stereo : oboe::ChannelCount::Mono);
     builder.setDeviceId(oboe::kUnspecified);

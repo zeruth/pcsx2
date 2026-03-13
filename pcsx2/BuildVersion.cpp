@@ -4,12 +4,12 @@
 // Hardcoded to pcsx2-x86-master. Update GitTag/GitHash when rebasing.
 namespace BuildVersion
 {
-	const char* GitTag = "v2.7.151";
+	const char* GitTag = "v2.7.182";
 	bool GitTaggedCommit = false;
 	int GitTagHi = 2;
-	int GitTagMid = 3;
-	int GitTagLo = 0;
-	const char* GitRev = "v2.7.151";
-	const char* GitHash = "f25283e";
-	const char* GitDate = "2026-03-03";
+	int GitTagMid = 7;
+	int GitTagLo = 182;
+	const char* GitRev = "v2.7.182";
+	const char* GitHash = "bc624524c";
+	const char* GitDate = "2026-03-13";
 } // namespace BuildVersion
