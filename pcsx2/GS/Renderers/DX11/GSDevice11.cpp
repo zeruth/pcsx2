@@ -66,7 +66,7 @@ GSDevice11::GSDevice11()
 	m_features.framebuffer_fetch = false;
 	m_features.stencil_buffer = true;
 	m_features.cas_sharpening = true;
-	m_features.test_and_sample_depth = true;
+	m_features.test_and_sample_depth = false;
 }
 
 GSDevice11::~GSDevice11() = default;
@@ -495,6 +495,16 @@ bool GSDevice11::Create(GSVSyncMode vsync_mode, bool allow_present_throttle)
 
 	m_dev->CreateDepthStencilState(&dsd, m_date.dss.put());
 
+	// blend
+
+	{
+		D3D11_BLEND_DESC blend;
+
+		memset(&blend, 0, sizeof(blend));
+
+		m_dev->CreateBlendState(&blend, m_date.bs.put());
+	}
+
 	for (size_t i = 0; i < std::size(m_date.primid_init_ps); i++)
 	{
 		const std::string entry_point(StringUtil::StdStringFromFormat("ps_stencil_image_init_%zu", i));
@@ -594,6 +604,7 @@ void GSDevice11::SetFeatures(IDXGIAdapter1* adapter)
 
 	m_features.vs_expand = (!GSConfig.DisableVertexShaderExpand && m_feature_level >= D3D_FEATURE_LEVEL_11_0);
 	m_features.cas_sharpening = (m_feature_level >= D3D_FEATURE_LEVEL_11_0);
+	m_features.test_and_sample_depth = (m_feature_level >= D3D_FEATURE_LEVEL_11_0);
 
 	m_max_texture_size = (m_feature_level >= D3D_FEATURE_LEVEL_11_0) ?
 	                         D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION :
@@ -606,6 +617,7 @@ void GSDevice11::SetFeatures(IDXGIAdapter1* adapter)
 	Console.WriteLnFmt("D3D11: DXTn Texture Compression: {}", m_features.dxt_textures ? "Supported" : "Not Supported");
 	Console.WriteLnFmt("D3D11: BC6/7 Texture Compression: {}", m_features.bptc_textures ? "Supported" : "Not Supported");
 	Console.WriteLnFmt("D3D11: Conservative Depth: {}", m_conservative_depth ? "Supported" : "Not Supported");
+	Console.WriteLnFmt("D3D11: Depth Testing and Sampling: {}", m_features.test_and_sample_depth ? "Supported" : "Not Supported");
 	Console.WriteLnFmt("D3D11: RGBA16 UNORM Hardware Blending: {}", m_rgba16_unorm_hw_blend ? "Supported" : "Not Supported");
 }
 
@@ -1336,7 +1348,9 @@ void GSDevice11::DoStretchRect(GSTexture* sTex, const GSVector4& sRect, GSTextur
 	if (draw_in_depth)
 		OMSetDepthStencilState(m_convert.dss_write.get(), 0);
 	else
-		OMSetBlendState(bs, 0);
+		OMSetDepthStencilState(m_convert.dss.get(), 0);
+
+	OMSetBlendState(bs, 0);
 
 	// ia
 
@@ -1408,6 +1422,7 @@ void GSDevice11::PresentRect(GSTexture* sTex, const GSVector4& sRect, GSTexture*
 
 	// om
 
+	OMSetDepthStencilState(m_convert.dss.get(), 0);
 	OMSetBlendState(m_convert.bs[D3D11_COLOR_WRITE_ENABLE_ALL].get(), 0);
 
 	// ia
@@ -1513,15 +1528,8 @@ void GSDevice11::DrawMultiStretchRects(const MultiStretchRect* rects, u32 num_re
 	PSSetShader(m_convert.ps[static_cast<int>(shader)].get(), nullptr);
 	PSUnbindConflictingSRVs(dTex);
 
-	const bool draw_in_depth = dTex->IsDepthStencil();
-
-	if (draw_in_depth)
-	{
-		OMSetDepthStencilState(m_convert.dss_write.get(), 0);
-		OMSetRenderTargets(nullptr, dTex);
-	}
-	else
-		OMSetRenderTargets(dTex, nullptr);
+	OMSetDepthStencilState(dTex->IsRenderTarget() ? m_convert.dss.get() : m_convert.dss_write.get(), 0);
+	OMSetRenderTargets(dTex->IsRenderTarget() ? dTex : nullptr, dTex->IsDepthStencil() ? dTex : nullptr);
 
 	const GSVector2 ds(static_cast<float>(dTex->GetWidth()), static_cast<float>(dTex->GetHeight()));
 	GSTexture* last_tex = rects[0].src;
@@ -1539,7 +1547,7 @@ void GSDevice11::DrawMultiStretchRects(const MultiStretchRect* rects, u32 num_re
 			continue;
 		}
 
-		DoMultiStretchRects(rects + first, count, ds, draw_in_depth);
+		DoMultiStretchRects(rects + first, count, ds);
 		last_tex = rects[i].src;
 		last_linear = rects[i].linear;
 		last_wmask = rects[i].wmask.wrgba;
@@ -1547,10 +1555,10 @@ void GSDevice11::DrawMultiStretchRects(const MultiStretchRect* rects, u32 num_re
 		count = 1;
 	}
 
-	DoMultiStretchRects(rects + first, count, ds, draw_in_depth);
+	DoMultiStretchRects(rects + first, count, ds);
 }
 
-void GSDevice11::DoMultiStretchRects(const MultiStretchRect* rects, u32 num_rects, const GSVector2& ds, const bool draw_in_depth)
+void GSDevice11::DoMultiStretchRects(const MultiStretchRect* rects, u32 num_rects, const GSVector2& ds)
 {
 	g_perfmon.Put(GSPerfMon::TextureCopies, 1);
 
@@ -1598,8 +1606,7 @@ void GSDevice11::DoMultiStretchRects(const MultiStretchRect* rects, u32 num_rect
 	PSSetShaderResource(0, rects[0].src);
 	PSSetSamplerState(rects[0].linear ? m_convert.ln.get() : m_convert.pt.get());
 
-	if (!draw_in_depth)
-		OMSetBlendState(m_convert.bs[rects[0].wmask.wrgba].get(), 0.0f);
+	OMSetBlendState(m_convert.bs[rects[0].wmask.wrgba].get(), 0.0f);
 
 	DrawIndexedPrimitive();
 }
@@ -2012,6 +2019,8 @@ bool GSDevice11::CreateCASShaders()
 
 bool GSDevice11::DoCAS(GSTexture* sTex, GSTexture* dTex, bool sharpen_only, const std::array<u32, NUM_CAS_CONSTANTS>& constants)
 {
+	g_perfmon.Put(GSPerfMon::TextureCopies, 1);
+
 	static const int threadGroupWorkRegionDim = 16;
 	const int dispatchX = (dTex->GetWidth() + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
 	const int dispatchY = (dTex->GetHeight() + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
@@ -2220,6 +2229,7 @@ void GSDevice11::SetupDATE(GSTexture* rt, GSTexture* ds, SetDATM datm, const GSV
 	// om
 
 	OMSetDepthStencilState(m_date.dss.get(), 1);
+	OMSetBlendState(m_date.bs.get(), 0);
 	OMSetRenderTargets(nullptr, ds);
 
 	// ia
@@ -2507,7 +2517,12 @@ void GSDevice11::PSUnbindConflictingSRVs(GSTexture* tex1, GSTexture* tex2)
 		// We chech against what's currently bound (cached_sr_views), then update local state (ps_sr_views) which calls PSUpdateShaderState to update gpu state.
 		if ((tex1 && m_state.ps_cached_sr_views[i] == *static_cast<GSTexture11*>(tex1)) || (tex2 && m_state.ps_cached_sr_views[i] == *static_cast<GSTexture11*>(tex2)))
 		{
-			m_state.ps_sr_views[i] = nullptr;
+			// Local and gpu cached state can differ, if it does check if it conflicts and if it doesn't then we can bind that instead of unbinding.
+			const bool unbind_needed = (tex1 && m_state.ps_sr_views[i] == *static_cast<GSTexture11*>(tex1)) || (tex2 && m_state.ps_sr_views[i] == *static_cast<GSTexture11*>(tex2));
+
+			if (unbind_needed)
+				m_state.ps_sr_views[i] = nullptr;
+
 			changed = true;
 		}
 	}
@@ -2752,9 +2767,15 @@ void GSDevice11::RenderHW(GSHWDrawConfig& config)
 	IASetPrimitiveTopology(topology);
 
 	// Depth testing and sampling, bind resource as dsv read only and srv at the same time without the need of a copy.
+	// TODO: On older feature levels read only depth is not supported, we can fallback to a copy but a better solution
+	// is to wait for Depth feedback loops, in this case we can use it always, unbind the dsv and do testing in shader
+	// with no copies or separate read only dsv.
 	ID3D11DepthStencilView* read_only_dsv = nullptr;
 	if (config.tex && config.tex == config.ds)
-		read_only_dsv = static_cast<GSTexture11*>(config.ds)->ReadOnlyDepthStencilView();
+		if (m_features.test_and_sample_depth)
+			read_only_dsv = static_cast<GSTexture11*>(config.ds)->ReadOnlyDepthStencilView();
+		else
+			config.tex = nullptr;
 
 	// Preemptively bind srv if possible.
 	// We update the local state, then if there are srv conflicts PSUnbindConflictingSRVs will update the gpu state.

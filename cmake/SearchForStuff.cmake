@@ -56,6 +56,7 @@ else()
 	include(CheckLib)
 
 	if(UNIX AND NOT APPLE)
+		find_package(Fontconfig REQUIRED)
 		if(LINUX)
 			check_lib(LIBUDEV libudev libudev.h)
 		endif()
